@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "my-expo-app",
-    "slug": "my-expo-app",
+    "name": "second_opinion",
+    "slug": "second_opinion",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "myexpoapp",
+    "scheme": "second_opinion",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
