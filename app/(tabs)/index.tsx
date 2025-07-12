@@ -10,12 +10,14 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { IconSymbol } from '@/components/ui/IconSymbol';
+import { LinearGradient } from 'expo-linear-gradient';
+import { IconSymbol, Card, Button } from '@/components/ui';
+import { MedicalColors, MedicalGradients } from '@/constants/Colors';
 import { authService } from '@/src/services/authService';
 import { profileService, UserProfile, UserActivity } from '@/src/services/profileService';
 import { medicalRecordsService } from '@/src/services/medicalRecordsService';
 import * as Haptics from 'expo-haptics';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown, FadeInUp } from 'react-native-reanimated';
 
 interface DashboardStats {
   totalSessions: number;
@@ -56,8 +58,8 @@ export default function DashboardScreen() {
       title: 'Second Opinion',
       subtitle: 'Get expert advice',
       icon: 'stethoscope',
-      color: 'rgb(132, 204, 22)',
-      backgroundColor: 'rgba(132, 204, 22, 0.1)',
+      color: MedicalColors.primary[600],
+      backgroundColor: MedicalColors.primary[100],
       onPress: () => router.push('/consultation-flow'),
     },
     {
@@ -65,8 +67,8 @@ export default function DashboardScreen() {
       title: 'Medical Records',
       subtitle: 'Manage documents',
       icon: 'doc.text.fill',
-      color: 'rgb(59, 130, 246)',
-      backgroundColor: 'rgba(59, 130, 246, 0.1)',
+      color: MedicalColors.secondary[600],
+      backgroundColor: MedicalColors.secondary[100],
       onPress: () => router.push('/medical-records'),
     },
     {
@@ -74,8 +76,8 @@ export default function DashboardScreen() {
       title: 'Health Check',
       subtitle: 'Quick assessment',
       icon: 'heart.fill',
-      color: 'rgb(239, 68, 68)',
-      backgroundColor: 'rgba(239, 68, 68, 0.1)',
+      color: MedicalColors.accent[600],
+      backgroundColor: MedicalColors.accent[100],
       onPress: () => router.push('/comprehensive-health-assessment'),
     },
     {
@@ -83,8 +85,8 @@ export default function DashboardScreen() {
       title: 'Find Doctors',
       subtitle: 'Browse specialists',
       icon: 'person.3.fill',
-      color: 'rgb(168, 85, 247)',
-      backgroundColor: 'rgba(168, 85, 247, 0.1)',
+      color: MedicalColors.primary[700],
+      backgroundColor: MedicalColors.primary[50],
       onPress: () => Alert.alert('Coming Soon', 'Doctor directory coming soon!'),
     },
   ];
@@ -179,75 +181,89 @@ export default function DashboardScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
-        }
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Header */}
-        <Animated.View style={styles.header} entering={FadeIn}>
-          <View style={styles.headerText}>
-            <Text style={styles.greeting}>
-              Good {new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 18 ? 'Afternoon' : 'Evening'}
-            </Text>
-            <Text style={styles.userName}>
-              {userProfile?.first_name || 'User'}
-            </Text>
-          </View>
-          <TouchableOpacity 
-            style={styles.profileButton}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              router.push('/profile');
-            }}
-          >
-            <IconSymbol name="person.crop.circle.fill" size={40} color="rgb(132, 204, 22)" />
-          </TouchableOpacity>
-        </Animated.View>
-
-        {/* Health Goal Card */}
-        {userProfile?.health_goal && (
-          <Animated.View style={styles.healthGoalCard} entering={FadeInDown.delay(200)}>
-            <View style={styles.healthGoalHeader}>
-              <IconSymbol name="target" size={24} color="rgb(132, 204, 22)" />
-              <Text style={styles.healthGoalTitle}>Your Health Goal</Text>
+    <View style={styles.container}>
+      <LinearGradient
+        colors={[MedicalColors.primary[50], MedicalColors.secondary[50], '#FFFFFF']}
+        locations={[0, 0.3, 1]}
+        style={StyleSheet.absoluteFillObject}
+      />
+      
+      <SafeAreaView style={styles.safeArea}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
+          }
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Header */}
+          <Animated.View style={styles.header} entering={FadeInUp.duration(800)}>
+            <View style={styles.headerText}>
+              <Text style={styles.greeting}>
+                Good {new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 18 ? 'Afternoon' : 'Evening'}
+              </Text>
+              <Text style={styles.userName}>
+                {userProfile?.first_name || 'User'}
+              </Text>
             </View>
-            <Text style={styles.healthGoalText}>{userProfile.health_goal}</Text>
+            <TouchableOpacity 
+              style={styles.profileButton}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.push('/profile');
+              }}
+            >
+              <LinearGradient
+                colors={MedicalGradients.primary}
+                style={styles.profileButtonGradient}
+              >
+                <IconSymbol name="person.crop.circle.fill" size={24} color="#FFFFFF" />
+              </LinearGradient>
+            </TouchableOpacity>
           </Animated.View>
-        )}
 
-        {/* Medical Stats Cards */}
-        {medicalStats && (
-          <Animated.View style={styles.section} entering={FadeInDown.delay(300)}>
-            <Text style={styles.sectionTitle}>Your Medical Overview</Text>
-            <View style={styles.statsContainer}>
-              <View style={styles.statCard}>
-                <IconSymbol name="doc.text.fill" size={20} color="rgb(59, 130, 246)" />
-                <Text style={styles.statNumber}>{medicalStats.totalMedicalRecords}</Text>
-                <Text style={styles.statLabel}>Medical Records</Text>
+          {/* Health Goal Card */}
+          {userProfile?.health_goal && (
+            <Animated.View entering={FadeInDown.delay(200).duration(800)}>
+              <Card variant="health" padding="medium" style={styles.healthGoalCard}>
+                <View style={styles.healthGoalHeader}>
+                  <IconSymbol name="target" size={24} color={MedicalColors.secondary[600]} />
+                  <Text style={styles.healthGoalTitle}>Your Health Goal</Text>
+                </View>
+                <Text style={styles.healthGoalText}>{userProfile.health_goal}</Text>
+              </Card>
+            </Animated.View>
+          )}
+
+          {/* Medical Stats Cards */}
+          {medicalStats && (
+            <Animated.View style={styles.section} entering={FadeInDown.delay(300).duration(800)}>
+              <Text style={styles.sectionTitle}>Your Medical Overview</Text>
+              <View style={styles.statsContainer}>
+                <Card variant="default" padding="medium" style={styles.statCard}>
+                  <IconSymbol name="doc.text.fill" size={24} color={MedicalColors.secondary[600]} />
+                  <Text style={styles.statNumber}>{medicalStats.totalMedicalRecords}</Text>
+                  <Text style={styles.statLabel}>Medical Records</Text>
+                </Card>
+                <Card variant="default" padding="medium" style={styles.statCard}>
+                  <IconSymbol name="stethoscope" size={24} color={MedicalColors.primary[600]} />
+                  <Text style={styles.statNumber}>{medicalStats.totalSecondOpinionRequests}</Text>
+                  <Text style={styles.statLabel}>Second Opinions</Text>
+                </Card>
+                <Card variant="default" padding="medium" style={styles.statCard}>
+                  <IconSymbol name="checkmark.circle.fill" size={24} color={MedicalColors.secondary[600]} />
+                  <Text style={styles.statNumber}>{medicalStats.completedConsultations}</Text>
+                  <Text style={styles.statLabel}>Completed</Text>
+                </Card>
+                <Card variant="default" padding="medium" style={styles.statCard}>
+                  <IconSymbol name="clock.fill" size={24} color={MedicalColors.accent[600]} />
+                  <Text style={styles.statNumber}>{medicalStats.pendingRequests}</Text>
+                  <Text style={styles.statLabel}>Pending</Text>
+                </Card>
               </View>
-              <View style={styles.statCard}>
-                <IconSymbol name="stethoscope" size={20} color="rgb(132, 204, 22)" />
-                <Text style={styles.statNumber}>{medicalStats.totalSecondOpinionRequests}</Text>
-                <Text style={styles.statLabel}>Second Opinions</Text>
-              </View>
-              <View style={styles.statCard}>
-                <IconSymbol name="checkmark.circle.fill" size={20} color="rgb(34, 197, 94)" />
-                <Text style={styles.statNumber}>{medicalStats.completedConsultations}</Text>
-                <Text style={styles.statLabel}>Completed</Text>
-              </View>
-              <View style={styles.statCard}>
-                <IconSymbol name="clock.fill" size={20} color="rgb(251, 204, 21)" />
-                <Text style={styles.statNumber}>{medicalStats.pendingRequests}</Text>
-                <Text style={styles.statLabel}>Pending</Text>
-              </View>
-            </View>
-          </Animated.View>
-        )}
+            </Animated.View>
+          )}
 
         {/* App Stats Cards */}
         {stats && (
@@ -362,15 +378,18 @@ export default function DashboardScreen() {
             </View>
           </View>
         </Animated.View>
-      </ScrollView>
-    </SafeAreaView>
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'rgb(245, 246, 245)',
+  },
+  safeArea: {
+    flex: 1,
   },
   loadingContainer: {
     flex: 1,
@@ -379,13 +398,13 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
-    color: 'rgb(100, 112, 103)',
+    color: MedicalColors.neutral[600],
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingBottom: 32,
   },
   header: {
@@ -400,13 +419,14 @@ const styles = StyleSheet.create({
   },
   greeting: {
     fontSize: 16,
-    color: 'rgb(100, 112, 103)',
+    color: MedicalColors.neutral[600],
     marginBottom: 4,
+    fontWeight: '500',
   },
   userName: {
     fontSize: 28,
-    fontWeight: 'bold',
-    color: 'rgb(49, 58, 52)',
+    fontWeight: '700',
+    color: MedicalColors.neutral[900],
   },
   profileButton: {
     width: 48,
@@ -415,16 +435,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  healthGoalCard: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
-    shadowColor: 'rgba(47, 60, 51, 0.05)',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 1,
-    shadowRadius: 16,
+  profileButtonGradient: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: MedicalColors.primary[500],
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
     elevation: 4,
+  },
+  healthGoalCard: {
+    marginBottom: 24,
   },
   healthGoalHeader: {
     flexDirection: 'row',
@@ -435,11 +459,11 @@ const styles = StyleSheet.create({
   healthGoalTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: 'rgb(49, 58, 52)',
+    color: MedicalColors.neutral[900],
   },
   healthGoalText: {
     fontSize: 14,
-    color: 'rgb(100, 112, 103)',
+    color: MedicalColors.neutral[600],
     lineHeight: 20,
   },
   statsContainer: {
@@ -449,35 +473,28 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
     alignItems: 'center',
-    shadowColor: 'rgba(47, 60, 51, 0.05)',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 2,
   },
   statNumber: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: 'rgb(49, 58, 52)',
+    fontWeight: '700',
+    color: MedicalColors.neutral[900],
     marginTop: 8,
     marginBottom: 4,
   },
   statLabel: {
     fontSize: 12,
-    color: 'rgb(100, 112, 103)',
+    color: MedicalColors.neutral[600],
     textAlign: 'center',
+    fontWeight: '500',
   },
   section: {
     marginBottom: 32,
   },
   sectionTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: 'rgb(49, 58, 52)',
+    fontWeight: '700',
+    color: MedicalColors.neutral[900],
     marginBottom: 16,
   },
   quickActionsGrid: {

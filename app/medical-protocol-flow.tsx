@@ -1,707 +1,599 @@
-import { IconSymbol } from '@/components/ui/IconSymbol';
-import * as Haptics from 'expo-haptics';
-import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-    Alert,
-    Modal,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
+  View,
     Text,
+  StyleSheet,
+  ScrollView,
+  SafeAreaView,
     TouchableOpacity,
-    View,
+  Alert,
+  Modal,
+  Dimensions,
 } from 'react-native';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import { IconSymbol, Card, Button } from '@/components/ui';
+import { MedicalColors } from '@/constants/Colors';
+import * as Haptics from 'expo-haptics';
+import Animated, { FadeIn, FadeInDown, FadeInUp } from 'react-native-reanimated';
 
-interface Investigation {
-  id: string;
-  name: string;
-  type: 'lab' | 'imaging' | 'procedure' | 'specialist';
-  date: string;
-  status: 'completed' | 'pending' | 'scheduled';
-  results: string;
-  interpretation: string;
-  normalRange?: string;
-  significance: 'normal' | 'abnormal' | 'critical';
-  followUpRequired: boolean;
-}
+// Medical Protocol Steps following standard textbook approach
+const PROTOCOL_STEPS = [
+  {
+    id: 'history',
+    title: 'Medical History Review',
+    description: 'Systematic review of patient history and presenting symptoms',
+      status: 'completed',
+    duration: '5-10 minutes',
+    icon: 'doc.text',
+    details: [
+      'Chief complaint analysis',
+      'History of present illness (HPI)',
+      'Past medical history (PMH)',
+      'Family history',
+      'Social history',
+      'Review of systems (ROS)'
+    ],
+    textbookRef: 'Harrison\'s Principles of Internal Medicine, Ch. 1-2'
+  },
+  {
+    id: 'examination',
+    title: 'Physical Examination',
+    description: 'Comprehensive physical assessment following standard protocols',
+    status: 'in_progress',
+    duration: '10-15 minutes',
+    icon: 'stethoscope',
+    details: [
+      'Vital signs assessment',
+      'General appearance',
+      'Systematic examination by systems',
+      'Focused examination based on symptoms',
+      'Neurological assessment if indicated'
+    ],
+    textbookRef: 'Bates\' Guide to Physical Examination, Ch. 3-4'
+  },
+  {
+    id: 'differential',
+    title: 'Differential Diagnosis',
+    description: 'Systematic approach to developing differential diagnosis',
+    status: 'pending',
+    duration: '10-15 minutes',
+    icon: 'brain.head.profile',
+    details: [
+      'Pattern recognition',
+      'Epidemiological considerations',
+      'Pathophysiological reasoning',
+      'Risk stratification',
+      'Probability assessment'
+    ],
+    textbookRef: 'Clinical Problem Solving, NEJM Approach'
+  },
+  {
+    id: 'investigations',
+    title: 'Diagnostic Investigations',
+    description: 'Evidence-based selection of diagnostic tests',
+    status: 'pending',
+    duration: 'Review + ordering',
+    icon: 'testtube.2',
+    details: [
+      'Laboratory tests selection',
+      'Imaging studies if indicated',
+      'Specialized tests based on differential',
+      'Cost-benefit analysis',
+      'Patient safety considerations'
+    ],
+    textbookRef: 'Textbook of Diagnostic Medicine, Ch. 5-6'
+  },
+  {
+    id: 'analysis',
+    title: 'Results Analysis',
+    description: 'Systematic interpretation of diagnostic findings',
+    status: 'pending',
+    duration: '10-20 minutes',
+    icon: 'chart.line.uptrend.xyaxis',
+    details: [
+      'Laboratory values interpretation',
+      'Imaging findings correlation',
+      'Clinical correlation',
+      'Diagnostic accuracy assessment',
+      'Further testing needs'
+    ],
+    textbookRef: 'Clinical Laboratory Medicine, Ch. 7-8'
+  },
+  {
+    id: 'diagnosis',
+    title: 'Final Diagnosis',
+    description: 'Evidence-based diagnostic conclusion',
+    status: 'pending',
+    duration: '5-10 minutes',
+    icon: 'checkmark.seal',
+    details: [
+      'Primary diagnosis establishment',
+      'Secondary diagnoses if applicable',
+      'Confidence level assessment',
+      'Diagnostic criteria verification',
+      'ICD-10 coding'
+    ],
+    textbookRef: 'Diagnostic and Statistical Manual'
+  },
+  {
+    id: 'treatment',
+    title: 'Treatment Plan',
+    description: 'Evidence-based treatment recommendations',
+    status: 'pending',
+    duration: '15-20 minutes',
+    icon: 'pills',
+    details: [
+      'First-line treatment selection',
+      'Alternative options consideration',
+      'Contraindications review',
+      'Drug interactions check',
+      'Monitoring parameters'
+    ],
+    textbookRef: 'Clinical Pharmacology & Therapeutics'
+  },
+  {
+    id: 'explanation',
+    title: 'Patient Education',
+    description: 'Clear explanation of diagnosis and treatment',
+    status: 'pending',
+    duration: '10-15 minutes',
+    icon: 'person.2.fill',
+    details: [
+      'Diagnosis explanation in lay terms',
+      'Treatment rationale',
+      'Expected outcomes',
+      'Side effects discussion',
+      'Follow-up instructions'
+    ],
+    textbookRef: 'Patient Communication Guidelines'
+  }
+];
 
-interface NewInvestigation {
-  id: string;
-  name: string;
-  type: 'lab' | 'imaging' | 'procedure' | 'specialist';
-  reason: string;
-  urgency: 'routine' | 'urgent' | 'stat';
-  estimatedCost: string;
-  estimatedTime: string;
-  preparation: string[];
-  expectedResults: string;
-}
+// Sample case for demonstration
+const SAMPLE_CASE = {
+  id: 'case_001',
+  patientId: 'PT-12345',
+  chiefComplaint: 'Chest pain and shortness of breath',
+  currentStep: 'examination',
+  assignedDoctor: 'Dr. Sarah Johnson, MD',
+  specialty: 'Internal Medicine',
+  startTime: '2024-01-15T09:00:00Z',
+  estimatedCompletion: '2024-01-15T11:00:00Z',
+  priority: 'moderate',
+  protocolUsed: 'Chest Pain Evaluation Protocol',
+  evidenceLevel: 'Level A (Strong Evidence)',
+  findings: {
+    history: {
+      hpi: 'Sudden onset chest pain, radiating to left arm, associated with shortness of breath',
+      pmh: 'Hypertension, diabetes mellitus',
+      familyHistory: 'Father had MI at age 55',
+      socialHistory: 'Non-smoker, occasional alcohol use'
+    },
+    examination: {
+      vitals: 'BP: 150/90, HR: 95, RR: 22, O2 Sat: 95%',
+      cardiovascular: 'Regular rate and rhythm, no murmurs',
+      respiratory: 'Clear to auscultation bilaterally',
+      general: 'Anxious appearing, mild diaphoresis'
+    }
+  }
+};
 
-interface TreatmentPlan {
-  id: string;
-  diagnosis: string;
-  confidence: number;
-  medications: {
-    name: string;
-    dosage: string;
-    frequency: string;
-    duration: string;
-    purpose: string;
-    sideEffects: string[];
-  }[];
-  lifestyle: string[];
-  followUp: {
-    timeframe: string;
-    purpose: string;
-    tests: string[];
-  };
-  redFlags: string[];
-  prognosis: string;
-  alternatives: string[];
-}
+const { width: screenWidth } = Dimensions.get('window');
 
-const MedicalProtocolFlowScreen = () => {
+export default function MedicalProtocolFlow() {
   const router = useRouter();
-  const [currentStep, setCurrentStep] = useState(0);
-  const [selectedInvestigation, setSelectedInvestigation] = useState<Investigation | null>(null);
-  const [reviewModalVisible, setReviewModalVisible] = useState(false);
-  const [treatmentModalVisible, setTreatmentModalVisible] = useState(false);
+  const [selectedStep, setSelectedStep] = useState<string | null>(null);
+  const [showProtocolModal, setShowProtocolModal] = useState(false);
+  const [currentCase, setCurrentCase] = useState(SAMPLE_CASE);
 
-  const protocolSteps = [
-    { id: 'review', title: 'Review Existing Investigations', icon: 'doc.text.magnifyingglass' },
-    { id: 'order', title: 'Order New Investigations', icon: 'plus.circle' },
-    { id: 'treatment', title: 'Deliver Treatment Plan', icon: 'pills' }
-  ];
-
-  // Sample existing investigations
-  const existingInvestigations: Investigation[] = [
-    {
-      id: '1',
-      name: 'Complete Blood Count (CBC)',
-      type: 'lab',
-      date: '2024-01-15',
-      status: 'completed',
-      results: 'WBC: 8.2 K/μL, RBC: 4.5 M/μL, Hgb: 14.2 g/dL, Hct: 42.1%, Plt: 280 K/μL',
-      interpretation: 'All values within normal limits. No evidence of anemia or infection.',
-      normalRange: 'WBC: 4.5-11.0 K/μL, RBC: 4.2-5.4 M/μL, Hgb: 12.0-16.0 g/dL',
-      significance: 'normal',
-      followUpRequired: false
-    },
-    {
-      id: '2',
-      name: 'Chest X-Ray',
-      type: 'imaging',
-      date: '2024-01-10',
-      status: 'completed',
-      results: 'Clear lung fields bilaterally. Normal cardiac silhouette. No acute findings.',
-      interpretation: 'Normal chest X-ray. No evidence of pneumonia, pneumothorax, or other pathology.',
-      significance: 'normal',
-      followUpRequired: false
-    },
-    {
-      id: '3',
-      name: 'Lipid Panel',
-      type: 'lab',
-      date: '2024-01-12',
-      status: 'completed',
-      results: 'Total Cholesterol: 245 mg/dL, LDL: 160 mg/dL, HDL: 38 mg/dL, Triglycerides: 235 mg/dL',
-      interpretation: 'Elevated cholesterol and triglycerides. Low HDL. Consistent with dyslipidemia.',
-      normalRange: 'Total: <200 mg/dL, LDL: <100 mg/dL, HDL: >40 mg/dL, TG: <150 mg/dL',
-      significance: 'abnormal',
-      followUpRequired: true
-    }
-  ];
-
-  // Sample new investigations to order
-  const newInvestigations: NewInvestigation[] = [
-    {
-      id: '1',
-      name: 'HbA1c (Glycated Hemoglobin)',
-      type: 'lab',
-      reason: 'Screen for diabetes given dyslipidemia and cardiovascular risk factors',
-      urgency: 'routine',
-      estimatedCost: '$45-65',
-      estimatedTime: '1-2 days',
-      preparation: ['No fasting required', 'Continue regular medications'],
-      expectedResults: 'Assess average blood sugar over past 2-3 months'
-    },
-    {
-      id: '2',
-      name: 'Thyroid Function Tests (TSH, Free T4)',
-      type: 'lab',
-      reason: 'Rule out thyroid dysfunction as cause of dyslipidemia',
-      urgency: 'routine',
-      estimatedCost: '$85-120',
-      estimatedTime: '1-2 days',
-      preparation: ['No special preparation needed', 'Take medications as usual'],
-      expectedResults: 'Evaluate thyroid function and metabolism'
-    },
-    {
-      id: '3',
-      name: 'Echocardiogram',
-      type: 'imaging',
-      reason: 'Assess cardiac function and structure given cardiovascular risk',
-      urgency: 'routine',
-      estimatedCost: '$300-500',
-      estimatedTime: '30-45 minutes',
-      preparation: ['No fasting required', 'Wear comfortable clothing', 'Avoid caffeine 2 hours prior'],
-      expectedResults: 'Evaluate heart structure, function, and valve competency'
-    }
-  ];
-
-  // Sample treatment plan
-  const treatmentPlan: TreatmentPlan = {
-    id: '1',
-    diagnosis: 'Dyslipidemia (Mixed Hyperlipidemia)',
-    confidence: 95,
-    medications: [
-      {
-        name: 'Atorvastatin',
-        dosage: '20 mg',
-        frequency: 'Once daily',
-        duration: 'Long-term',
-        purpose: 'Lower cholesterol and reduce cardiovascular risk',
-        sideEffects: ['Muscle pain', 'Liver enzyme elevation', 'Digestive issues']
-      },
-      {
-        name: 'Omega-3 Fatty Acids',
-        dosage: '1000 mg',
-        frequency: 'Twice daily',
-        duration: '3-6 months initially',
-        purpose: 'Lower triglycerides and reduce inflammation',
-        sideEffects: ['Fishy aftertaste', 'Digestive upset', 'Blood thinning']
-      }
-    ],
-    lifestyle: [
-      'Mediterranean diet with emphasis on fruits, vegetables, whole grains',
-      'Limit saturated fats to <7% of total calories',
-      'Increase soluble fiber intake (oats, beans, apples)',
-      'Regular aerobic exercise 150 minutes/week',
-      'Weight loss of 5-10% if overweight',
-      'Limit alcohol consumption',
-      'Smoking cessation if applicable'
-    ],
-    followUp: {
-      timeframe: '6-8 weeks',
-      purpose: 'Monitor response to treatment and check for side effects',
-      tests: ['Lipid panel', 'Liver function tests', 'CK (if muscle symptoms)']
-    },
-    redFlags: [
-      'Severe muscle pain or weakness',
-      'Dark urine or yellowing of skin/eyes',
-      'Persistent nausea or vomiting',
-      'Chest pain or shortness of breath',
-      'Unusual fatigue or weakness'
-    ],
-    prognosis: 'Excellent with treatment adherence. 20-30% reduction in cardiovascular events expected.',
-    alternatives: [
-      'Bile acid sequestrants (if statin intolerant)',
-      'PCSK9 inhibitors (if high-risk and statin insufficient)',
-      'Lifestyle modifications alone (if mild elevation)'
-    ]
-  };
-
-  const handleInvestigationReview = (investigation: Investigation) => {
-    setSelectedInvestigation(investigation);
-    setReviewModalVisible(true);
-  };
-
-  const handleOrderInvestigation = (investigation: NewInvestigation) => {
-    Alert.alert(
-      'Order Investigation',
-      `Order ${investigation.name}?\n\nEstimated cost: ${investigation.estimatedCost}\nResults in: ${investigation.estimatedTime}`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Order', onPress: () => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-          Alert.alert('Investigation Ordered', 'You will receive scheduling instructions shortly.');
-        }}
-      ]
-    );
-  };
-
-  const handleTreatmentExplanation = () => {
-    setTreatmentModalVisible(true);
-  };
-
-  const getSignificanceColor = (significance: string) => {
-    switch (significance) {
-      case 'normal': return 'rgb(34, 197, 94)';
-      case 'abnormal': return 'rgb(251, 204, 21)';
-      case 'critical': return 'rgb(239, 68, 68)';
-      default: return 'rgb(100, 112, 103)';
-    }
-  };
-
-  const getUrgencyColor = (urgency: string) => {
-    switch (urgency) {
-      case 'routine': return 'rgb(34, 197, 94)';
-      case 'urgent': return 'rgb(251, 204, 21)';
-      case 'stat': return 'rgb(239, 68, 68)';
-      default: return 'rgb(100, 112, 103)';
-    }
-  };
-
-  const renderStepContent = () => {
-    switch (currentStep) {
-      case 0:
-        return (
-          <View style={styles.stepContent}>
-            <Text style={styles.stepTitle}>Review Existing Investigations</Text>
-            <Text style={styles.stepDescription}>
-              Let's review your recent test results and understand what they tell us about your health.
-            </Text>
-            
-            <View style={styles.protocolNote}>
-              <IconSymbol name="info.circle" size={20} color="rgb(59, 130, 246)" />
-              <Text style={styles.protocolNoteText}>
-                Following standard medical protocol: We always review existing data before ordering new tests.
-              </Text>
-            </View>
-
-            <View style={styles.investigationsContainer}>
-              {existingInvestigations.map((investigation, index) => (
-                <Animated.View
-                  key={investigation.id}
-                  entering={FadeInDown.delay(100 + index * 50)}
-                  style={styles.investigationCard}
-                >
-                  <View style={styles.investigationHeader}>
-                    <View style={styles.investigationInfo}>
-                      <Text style={styles.investigationName}>{investigation.name}</Text>
-                      <Text style={styles.investigationDate}>{investigation.date}</Text>
-                    </View>
-                    <View style={[
-                      styles.significanceBadge,
-                      { backgroundColor: getSignificanceColor(investigation.significance) }
-                    ]}>
-                      <Text style={styles.significanceText}>
-                        {investigation.significance.toUpperCase()}
-                      </Text>
-                    </View>
-                  </View>
-                  
-                  <Text style={styles.investigationResults} numberOfLines={2}>
-                    {investigation.results}
-                  </Text>
-                  
-                  <TouchableOpacity
-                    style={styles.reviewButton}
-                    onPress={() => handleInvestigationReview(investigation)}
-                  >
-                    <Text style={styles.reviewButtonText}>Review & Explain</Text>
-                    <IconSymbol name="arrow.right" size={16} color="rgb(132, 204, 22)" />
-                  </TouchableOpacity>
-                </Animated.View>
-              ))}
-            </View>
-          </View>
-        );
-      
-      case 1:
-        return (
-          <View style={styles.stepContent}>
-            <Text style={styles.stepTitle}>Order New Investigations</Text>
-            <Text style={styles.stepDescription}>
-              Based on your existing results, these additional tests are recommended to complete your assessment.
-            </Text>
-            
-            <View style={styles.protocolNote}>
-              <IconSymbol name="checkmark.shield" size={20} color="rgb(132, 204, 22)" />
-              <Text style={styles.protocolNoteText}>
-                Each test is ordered based on evidence-based guidelines and your specific clinical picture.
-              </Text>
-            </View>
-
-            <View style={styles.investigationsContainer}>
-              {newInvestigations.map((investigation, index) => (
-                <Animated.View
-                  key={investigation.id}
-                  entering={FadeInDown.delay(100 + index * 50)}
-                  style={styles.newInvestigationCard}
-                >
-                  <View style={styles.investigationHeader}>
-                    <View style={styles.investigationInfo}>
-                      <Text style={styles.investigationName}>{investigation.name}</Text>
-                      <Text style={styles.investigationCost}>{investigation.estimatedCost}</Text>
-                    </View>
-                    <View style={[
-                      styles.urgencyBadge,
-                      { backgroundColor: getUrgencyColor(investigation.urgency) }
-                    ]}>
-                      <Text style={styles.urgencyText}>
-                        {investigation.urgency.toUpperCase()}
-                      </Text>
-                    </View>
-                  </View>
-                  
-                  <Text style={styles.investigationReason}>{investigation.reason}</Text>
-                  
-                  <View style={styles.investigationDetails}>
-                    <View style={styles.detailItem}>
-                      <IconSymbol name="clock" size={16} color="rgb(100, 112, 103)" />
-                      <Text style={styles.detailText}>Results in {investigation.estimatedTime}</Text>
-                    </View>
-                    <View style={styles.detailItem}>
-                      <IconSymbol name="list.bullet" size={16} color="rgb(100, 112, 103)" />
-                      <Text style={styles.detailText}>{investigation.preparation.length} preparation steps</Text>
-                    </View>
-                  </View>
-                  
-                  <TouchableOpacity
-                    style={styles.orderButton}
-                    onPress={() => handleOrderInvestigation(investigation)}
-                  >
-                    <Text style={styles.orderButtonText}>Order Investigation</Text>
-                    <IconSymbol name="plus.circle" size={16} color="white" />
-                  </TouchableOpacity>
-                </Animated.View>
-              ))}
-            </View>
-          </View>
-        );
-      
-      case 2:
-        return (
-          <View style={styles.stepContent}>
-            <Text style={styles.stepTitle}>Treatment Plan</Text>
-            <Text style={styles.stepDescription}>
-              Based on your investigations, here's your personalized treatment plan with clear explanations.
-            </Text>
-            
-            <View style={styles.protocolNote}>
-              <IconSymbol name="brain.head.profile" size={20} color="rgb(168, 85, 247)" />
-              <Text style={styles.protocolNoteText}>
-                Treatment follows evidence-based guidelines and is tailored to your specific condition and needs.
-              </Text>
-            </View>
-
-            <Animated.View entering={FadeIn} style={styles.treatmentCard}>
-              <View style={styles.treatmentHeader}>
-                <Text style={styles.diagnosisTitle}>{treatmentPlan.diagnosis}</Text>
-                <View style={styles.confidenceContainer}>
-                  <Text style={styles.confidenceText}>{treatmentPlan.confidence}% confidence</Text>
-                </View>
-              </View>
-              
-              <View style={styles.treatmentSection}>
-                <Text style={styles.treatmentSectionTitle}>Medications</Text>
-                {treatmentPlan.medications.map((med, index) => (
-                  <View key={index} style={styles.medicationItem}>
-                    <Text style={styles.medicationName}>{med.name} {med.dosage}</Text>
-                    <Text style={styles.medicationDetails}>{med.frequency} - {med.purpose}</Text>
-                  </View>
-                ))}
-              </View>
-              
-              <View style={styles.treatmentSection}>
-                <Text style={styles.treatmentSectionTitle}>Lifestyle Changes</Text>
-                {treatmentPlan.lifestyle.slice(0, 3).map((lifestyle, index) => (
-                  <View key={index} style={styles.lifestyleItem}>
-                    <IconSymbol name="checkmark.circle" size={16} color="rgb(132, 204, 22)" />
-                    <Text style={styles.lifestyleText}>{lifestyle}</Text>
-                  </View>
-                ))}
-                {treatmentPlan.lifestyle.length > 3 && (
-                  <Text style={styles.moreText}>+{treatmentPlan.lifestyle.length - 3} more recommendations</Text>
-                )}
-              </View>
-              
-              <TouchableOpacity
-                style={styles.explainButton}
-                onPress={handleTreatmentExplanation}
-              >
-                <Text style={styles.explainButtonText}>Get Detailed Explanation</Text>
-                <IconSymbol name="arrow.right" size={16} color="white" />
-              </TouchableOpacity>
-            </Animated.View>
-          </View>
-        );
-      
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return MedicalColors.success[600];
+      case 'in_progress':
+        return MedicalColors.warning[600];
+      case 'pending':
+        return MedicalColors.neutral[400];
       default:
-        return null;
+        return MedicalColors.neutral[400];
     }
   };
 
-  return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <IconSymbol name="chevron.left" size={24} color="rgb(49, 58, 52)" />
-        </TouchableOpacity>
-        
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Medical Protocol</Text>
-          <Text style={styles.headerSubtitle}>Standardized Care Process</Text>
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return 'checkmark.circle.fill';
+      case 'in_progress':
+        return 'clock.fill';
+      case 'pending':
+        return 'circle';
+      default:
+        return 'circle';
+    }
+  };
+
+  const handleStepPress = (step: any) => {
+    setSelectedStep(step.id);
+    setShowProtocolModal(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const handleProceedToNextStep = () => {
+    const currentStepIndex = PROTOCOL_STEPS.findIndex(step => step.id === currentCase.currentStep);
+    if (currentStepIndex < PROTOCOL_STEPS.length - 1) {
+      const nextStep = PROTOCOL_STEPS[currentStepIndex + 1];
+      setCurrentCase(prev => ({
+        ...prev,
+        currentStep: nextStep.id
+      }));
+      // Update the current step status to completed and next to in_progress
+      PROTOCOL_STEPS[currentStepIndex].status = 'completed';
+      PROTOCOL_STEPS[currentStepIndex + 1].status = 'in_progress';
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+  };
+
+  const renderCaseOverview = () => (
+    <Card variant="default" padding="large" style={styles.caseCard}>
+      <View style={styles.caseHeader}>
+        <View style={styles.caseInfo}>
+          <Text style={styles.caseTitle}>Current Case</Text>
+          <Text style={styles.caseSubtitle}>Patient ID: {currentCase.patientId}</Text>
         </View>
-        
-        <TouchableOpacity style={styles.helpButton} onPress={() => {}}>
-          <IconSymbol name="questionmark.circle" size={24} color="rgb(132, 204, 22)" />
-        </TouchableOpacity>
+        <View style={styles.priorityBadge}>
+          <Text style={styles.priorityText}>{currentCase.priority.toUpperCase()}</Text>
+        </View>
       </View>
 
-      {/* Progress Steps */}
-      <View style={styles.progressContainer}>
-        <View style={styles.stepsContainer}>
-          {protocolSteps.map((step, index) => (
-            <View key={step.id} style={styles.stepItem}>
-              <View style={[
-                styles.stepIndicator,
-                index < currentStep ? styles.stepCompleted :
-                index === currentStep ? styles.stepCurrent : styles.stepPending
-              ]}>
-                {index < currentStep ? (
-                  <IconSymbol name="checkmark" size={16} color="white" />
-                ) : (
-                  <IconSymbol name={step.icon} size={16} color={
-                    index === currentStep ? 'white' : 'rgb(100, 112, 103)'
-                  } />
-                )}
-              </View>
-              <Text style={[
-                styles.stepLabel,
-                index === currentStep && styles.stepLabelCurrent
-              ]}>
-                {step.title}
-              </Text>
+      <View style={styles.caseDetails}>
+        <View style={styles.caseDetailItem}>
+          <IconSymbol name="heart.text.square" size={20} color={MedicalColors.primary[600]} />
+          <Text style={styles.caseDetailText}>{currentCase.chiefComplaint}</Text>
             </View>
-          ))}
-        </View>
-      </View>
 
-      {/* Content */}
-      <ScrollView 
-        style={styles.content}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-      >
-        {renderStepContent()}
-      </ScrollView>
-
-      {/* Bottom Navigation */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity
-          style={[styles.navButton, styles.backNavButton]}
-          onPress={() => {
-            if (currentStep > 0) {
-              setCurrentStep(currentStep - 1);
-            } else {
-              router.back();
-            }
-          }}
-        >
-          <IconSymbol name="chevron.left" size={20} color="rgb(132, 204, 22)" />
-          <Text style={styles.backNavText}>Back</Text>
-        </TouchableOpacity>
+        <View style={styles.caseDetailItem}>
+          <IconSymbol name="person.fill" size={20} color={MedicalColors.secondary[600]} />
+          <Text style={styles.caseDetailText}>{currentCase.assignedDoctor}</Text>
+                    </View>
         
-        <TouchableOpacity
-          style={[styles.navButton, styles.nextNavButton]}
-          onPress={() => {
-            if (currentStep < protocolSteps.length - 1) {
-              setCurrentStep(currentStep + 1);
-            } else {
-              router.push('/(tabs)');
-            }
-          }}
-        >
-          <Text style={styles.nextNavText}>
-            {currentStep === protocolSteps.length - 1 ? 'Complete' : 'Next'}
-          </Text>
-          <IconSymbol name="chevron.right" size={20} color="white" />
-        </TouchableOpacity>
-      </View>
+        <View style={styles.caseDetailItem}>
+          <IconSymbol name="doc.text" size={20} color={MedicalColors.accent[600]} />
+          <Text style={styles.caseDetailText}>{currentCase.protocolUsed}</Text>
+                    </View>
+                  </View>
+                  
+      <View style={styles.progressContainer}>
+        <View style={styles.progressHeader}>
+          <Text style={styles.progressTitle}>Protocol Progress</Text>
+          <Text style={styles.progressSubtitle}>
+            {PROTOCOL_STEPS.filter(step => step.status === 'completed').length} of {PROTOCOL_STEPS.length} steps completed
+                  </Text>
+        </View>
+        
+        <View style={styles.progressBar}>
+          <View 
+            style={[
+              styles.progressFill, 
+              { width: `${(PROTOCOL_STEPS.filter(step => step.status === 'completed').length / PROTOCOL_STEPS.length) * 100}%` }
+            ]} 
+          />
+            </View>
+          </View>
+    </Card>
+  );
 
-      {/* Investigation Review Modal */}
+  const renderProtocolSteps = () => (
+    <Card variant="default" padding="large" style={styles.protocolCard}>
+      <View style={styles.protocolHeader}>
+        <IconSymbol name="list.bullet.clipboard" size={32} color={MedicalColors.primary[600]} />
+        <Text style={styles.protocolTitle}>Medical Protocol Steps</Text>
+            </View>
+
+      <View style={styles.stepsContainer}>
+        {PROTOCOL_STEPS.map((step, index) => (
+                <Animated.View
+            key={step.id} 
+            entering={FadeInDown.delay(index * 100)}
+            style={styles.stepItem}
+          >
+            <TouchableOpacity
+              style={styles.stepButton}
+              onPress={() => handleStepPress(step)}
+            >
+              <View style={styles.stepLeft}>
+                <View style={styles.stepIndicator}>
+                  <View style={[styles.stepNumber, { backgroundColor: getStatusColor(step.status) }]}>
+                    <Text style={styles.stepNumberText}>{index + 1}</Text>
+                    </View>
+                  {index < PROTOCOL_STEPS.length - 1 && (
+                    <View style={styles.stepConnector} />
+                  )}
+                </View>
+                
+                <View style={styles.stepContent}>
+                  <View style={styles.stepHeader}>
+                    <Text style={styles.stepTitle}>{step.title}</Text>
+                    <View style={styles.stepMeta}>
+                      <IconSymbol 
+                        name={getStatusIcon(step.status)} 
+                        size={16} 
+                        color={getStatusColor(step.status)} 
+                      />
+                      <Text style={[styles.stepStatus, { color: getStatusColor(step.status) }]}>
+                        {step.status.replace('_', ' ').toUpperCase()}
+                      </Text>
+                    </View>
+                  </View>
+                  
+                  <Text style={styles.stepDescription}>{step.description}</Text>
+                  
+                  <View style={styles.stepFooter}>
+                    <Text style={styles.stepDuration}>{step.duration}</Text>
+                    <IconSymbol name="chevron.right" size={16} color={MedicalColors.neutral[400]} />
+                    </View>
+                    </View>
+                  </View>
+                  </TouchableOpacity>
+                </Animated.View>
+              ))}
+            </View>
+    </Card>
+  );
+
+  const renderEvidenceSection = () => (
+    <Card variant="default" padding="large" style={styles.evidenceCard}>
+      <View style={styles.evidenceHeader}>
+        <IconSymbol name="book.fill" size={32} color={MedicalColors.secondary[600]} />
+        <Text style={styles.evidenceTitle}>Evidence-Based Medicine</Text>
+            </View>
+
+      <View style={styles.evidenceContent}>
+        <View style={styles.evidenceItem}>
+          <Text style={styles.evidenceLabel}>Protocol Classification:</Text>
+          <Text style={styles.evidenceValue}>{currentCase.evidenceLevel}</Text>
+              </View>
+              
+        <View style={styles.evidenceItem}>
+          <Text style={styles.evidenceLabel}>Based on:</Text>
+          <Text style={styles.evidenceValue}>Randomized controlled trials and meta-analyses</Text>
+              </View>
+              
+        <View style={styles.evidenceItem}>
+          <Text style={styles.evidenceLabel}>Last Updated:</Text>
+          <Text style={styles.evidenceValue}>December 2023</Text>
+                  </View>
+              </View>
+              
+      <View style={styles.qualityBadges}>
+        <View style={styles.qualityBadge}>
+          <IconSymbol name="checkmark.seal" size={16} color={MedicalColors.success[600]} />
+          <Text style={styles.qualityBadgeText}>Peer Reviewed</Text>
+          </View>
+        
+        <View style={styles.qualityBadge}>
+          <IconSymbol name="doc.text.magnifyingglass" size={16} color={MedicalColors.info[600]} />
+          <Text style={styles.qualityBadgeText}>Evidence-Based</Text>
+        </View>
+        
+        <View style={styles.qualityBadge}>
+          <IconSymbol name="building.2" size={16} color={MedicalColors.tertiary[600]} />
+          <Text style={styles.qualityBadgeText}>Institutional</Text>
+      </View>
+              </View>
+    </Card>
+  );
+
+  const renderProtocolModal = () => {
+    const step = PROTOCOL_STEPS.find(s => s.id === selectedStep);
+    if (!step) return null;
+
+    return (
       <Modal
-        visible={reviewModalVisible}
+        visible={showProtocolModal}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={() => setReviewModalVisible(false)}
+        onRequestClose={() => setShowProtocolModal(false)}
       >
-        <SafeAreaView style={styles.modalContainer}>
+        <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Investigation Review</Text>
-            <TouchableOpacity onPress={() => setReviewModalVisible(false)}>
-              <IconSymbol name="xmark" size={24} color="rgb(100, 112, 103)" />
+            <Text style={styles.modalTitle}>{step.title}</Text>
+            <TouchableOpacity
+              onPress={() => setShowProtocolModal(false)}
+              style={styles.modalCloseButton}
+            >
+              <IconSymbol name="xmark" size={24} color={MedicalColors.neutral[600]} />
             </TouchableOpacity>
           </View>
           
-          {selectedInvestigation && (
             <ScrollView style={styles.modalContent}>
-              <Text style={styles.modalInvestigationName}>{selectedInvestigation.name}</Text>
+            <View style={styles.modalSection}>
+              <Text style={styles.modalSectionTitle}>Description</Text>
+              <Text style={styles.modalSectionText}>{step.description}</Text>
+            </View>
               
               <View style={styles.modalSection}>
-                <Text style={styles.modalSectionTitle}>Results:</Text>
-                <Text style={styles.modalSectionText}>{selectedInvestigation.results}</Text>
-              </View>
-              
-              <View style={styles.modalSection}>
-                <Text style={styles.modalSectionTitle}>Medical Interpretation:</Text>
-                <Text style={styles.modalSectionText}>{selectedInvestigation.interpretation}</Text>
-              </View>
-              
-              {selectedInvestigation.normalRange && (
-                <View style={styles.modalSection}>
-                  <Text style={styles.modalSectionTitle}>Normal Range:</Text>
-                  <Text style={styles.modalSectionText}>{selectedInvestigation.normalRange}</Text>
+              <Text style={styles.modalSectionTitle}>Protocol Steps</Text>
+              {step.details.map((detail, index) => (
+                <View key={index} style={styles.protocolDetailItem}>
+                  <IconSymbol name="checkmark.circle" size={16} color={MedicalColors.success[600]} />
+                  <Text style={styles.protocolDetailText}>{detail}</Text>
                 </View>
-              )}
+              ))}
+              </View>
               
               <View style={styles.modalSection}>
-                <Text style={styles.modalSectionTitle}>Clinical Significance:</Text>
-                <View style={styles.significanceContainer}>
-                  <View style={[
-                    styles.significanceIndicator,
-                    { backgroundColor: getSignificanceColor(selectedInvestigation.significance) }
-                  ]} />
-                  <Text style={styles.significanceLabel}>
-                    {selectedInvestigation.significance.charAt(0).toUpperCase() + selectedInvestigation.significance.slice(1)}
+              <Text style={styles.modalSectionTitle}>Textbook Reference</Text>
+              <Text style={styles.modalSectionText}>{step.textbookRef}</Text>
+              </View>
+              
+                <View style={styles.modalSection}>
+              <Text style={styles.modalSectionTitle}>Expected Duration</Text>
+              <Text style={styles.modalSectionText}>{step.duration}</Text>
+                </View>
+              
+            {step.id === currentCase.currentStep && (
+              <View style={styles.modalSection}>
+                <Text style={styles.modalSectionTitle}>Current Findings</Text>
+                {step.id === 'history' && currentCase.findings.history && (
+                  <View style={styles.findingsContainer}>
+                    <Text style={styles.findingItem}>
+                      <Text style={styles.findingLabel}>HPI: </Text>
+                      {currentCase.findings.history.hpi}
+                    </Text>
+                    <Text style={styles.findingItem}>
+                      <Text style={styles.findingLabel}>PMH: </Text>
+                      {currentCase.findings.history.pmh}
+                    </Text>
+                    <Text style={styles.findingItem}>
+                      <Text style={styles.findingLabel}>Family History: </Text>
+                      {currentCase.findings.history.familyHistory}
                   </Text>
                 </View>
-              </View>
-              
-              {selectedInvestigation.followUpRequired && (
-                <View style={styles.followUpNote}>
-                  <IconSymbol name="exclamationmark.triangle" size={20} color="rgb(251, 204, 21)" />
-                  <Text style={styles.followUpText}>Follow-up required based on these results</Text>
+                )}
+                
+                {step.id === 'examination' && currentCase.findings.examination && (
+                  <View style={styles.findingsContainer}>
+                    <Text style={styles.findingItem}>
+                      <Text style={styles.findingLabel}>Vitals: </Text>
+                      {currentCase.findings.examination.vitals}
+                    </Text>
+                    <Text style={styles.findingItem}>
+                      <Text style={styles.findingLabel}>CV: </Text>
+                      {currentCase.findings.examination.cardiovascular}
+                    </Text>
+                    <Text style={styles.findingItem}>
+                      <Text style={styles.findingLabel}>Respiratory: </Text>
+                      {currentCase.findings.examination.respiratory}
+                    </Text>
+                  </View>
+                )}
                 </View>
               )}
             </ScrollView>
-          )}
-        </SafeAreaView>
-      </Modal>
 
-      {/* Treatment Explanation Modal */}
-      <Modal
-        visible={treatmentModalVisible}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setTreatmentModalVisible(false)}
-      >
-        <SafeAreaView style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Treatment Explanation</Text>
-            <TouchableOpacity onPress={() => setTreatmentModalVisible(false)}>
-              <IconSymbol name="xmark" size={24} color="rgb(100, 112, 103)" />
+          <View style={styles.modalFooter}>
+            {step.id === currentCase.currentStep && (
+              <Button
+                title="Complete This Step"
+                onPress={() => {
+                  handleProceedToNextStep();
+                  setShowProtocolModal(false);
+                }}
+                variant="primary"
+                size="large"
+                icon="checkmark.circle"
+                iconPosition="right"
+                fullWidth
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
+  return (
+    <View style={styles.container}>
+      <LinearGradient
+        colors={[MedicalColors.primary[50], MedicalColors.secondary[50], '#FFFFFF']}
+        locations={[0, 0.3, 1]}
+        style={StyleSheet.absoluteFillObject}
+      />
+      
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backButton}
+          >
+            <IconSymbol name="chevron.left" size={24} color={MedicalColors.primary[600]} />
             </TouchableOpacity>
+          <Text style={styles.headerTitle}>Medical Protocol</Text>
+          <View style={styles.headerSpacer} />
           </View>
           
-          <ScrollView style={styles.modalContent}>
-            <Text style={styles.modalDiagnosisTitle}>{treatmentPlan.diagnosis}</Text>
-            
-            <View style={styles.modalSection}>
-              <Text style={styles.modalSectionTitle}>Why This Treatment?</Text>
-              <Text style={styles.modalSectionText}>
-                This treatment plan is based on evidence-based guidelines for managing {treatmentPlan.diagnosis.toLowerCase()}. 
-                The medications and lifestyle changes have been proven effective in clinical trials.
+        <ScrollView 
+          style={styles.content}
+          contentContainerStyle={styles.contentContainer}
+          showsVerticalScrollIndicator={false}
+        >
+          <Animated.View entering={FadeInUp.duration(500)}>
+            <View style={styles.introSection}>
+              <Text style={styles.introTitle}>Standardized Medical Protocol</Text>
+              <Text style={styles.introDescription}>
+                Following evidence-based textbook protocols to ensure comprehensive, 
+                standardized care for every patient case.
               </Text>
             </View>
+          </Animated.View>
+
+          {renderCaseOverview()}
+          {renderProtocolSteps()}
+          {renderEvidenceSection()}
+
+          <View style={styles.actionButtons}>
+            <Button
+              title="View Patient Summary"
+              onPress={() => router.push('/medical-records')}
+              variant="outline"
+              size="medium"
+              icon="doc.text"
+              iconPosition="left"
+              style={styles.actionButton}
+            />
             
-            <View style={styles.modalSection}>
-              <Text style={styles.modalSectionTitle}>Expected Outcomes:</Text>
-              <Text style={styles.modalSectionText}>{treatmentPlan.prognosis}</Text>
+            <Button
+              title="Continue to Consultation"
+              onPress={() => router.push('/consultation-flow')}
+              variant="primary"
+              size="medium"
+              icon="arrow.right.circle"
+              iconPosition="right"
+              style={styles.actionButton}
+            />
             </View>
             
-            <View style={styles.modalSection}>
-              <Text style={styles.modalSectionTitle}>Warning Signs (Red Flags):</Text>
-              {treatmentPlan.redFlags.map((flag, index) => (
-                <View key={index} style={styles.redFlagItem}>
-                  <IconSymbol name="exclamationmark.triangle.fill" size={16} color="rgb(239, 68, 68)" />
-                  <Text style={styles.redFlagText}>{flag}</Text>
-                </View>
-              ))}
-            </View>
-            
-            <View style={styles.modalSection}>
-              <Text style={styles.modalSectionTitle}>Follow-up Plan:</Text>
-              <Text style={styles.modalSectionText}>
-                Return in {treatmentPlan.followUp.timeframe} for {treatmentPlan.followUp.purpose}
-              </Text>
-              <Text style={styles.modalSubText}>
-                Tests needed: {treatmentPlan.followUp.tests.join(', ')}
+          <View style={styles.trustSection}>
+            <Text style={styles.trustTitle}>Why This Matters</Text>
+            <Text style={styles.trustDescription}>
+              Our standardized protocols ensure every patient receives the same high-quality, 
+              evidence-based care that follows established medical guidelines and best practices.
               </Text>
             </View>
           </ScrollView>
         </SafeAreaView>
-      </Modal>
-    </SafeAreaView>
+
+      {renderProtocolModal()}
+    </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+  },
+  safeArea: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
+    paddingVertical: 16,
   },
   backButton: {
     padding: 8,
   },
-  headerContent: {
-    flex: 1,
-    alignItems: 'center',
-  },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: 'rgb(49, 58, 52)',
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: 'rgb(100, 112, 103)',
-    marginTop: 2,
-  },
-  helpButton: {
-    padding: 8,
-  },
-  progressContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-    backgroundColor: 'rgba(132, 204, 22, 0.02)',
-  },
-  stepsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  stepItem: {
+    color: MedicalColors.neutral[900],
     flex: 1,
-    alignItems: 'center',
-  },
-  stepIndicator: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  stepCompleted: {
-    backgroundColor: 'rgb(34, 197, 94)',
-  },
-  stepCurrent: {
-    backgroundColor: 'rgb(132, 204, 22)',
-  },
-  stepPending: {
-    backgroundColor: 'rgba(132, 204, 22, 0.2)',
-  },
-  stepLabel: {
-    fontSize: 12,
-    color: 'rgb(100, 112, 103)',
     textAlign: 'center',
   },
-  stepLabelCurrent: {
-    color: 'rgb(49, 58, 52)',
-    fontWeight: '600',
+  headerSpacer: {
+    width: 40,
   },
   content: {
     flex: 1,
@@ -710,375 +602,338 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 20,
   },
+  introSection: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  introTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: MedicalColors.neutral[900],
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  introDescription: {
+    fontSize: 16,
+    color: MedicalColors.neutral[600],
+    textAlign: 'center',
+    lineHeight: 24,
+    paddingHorizontal: 20,
+  },
+  caseCard: {
+    marginBottom: 20,
+  },
+  caseHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  caseInfo: {
+    flex: 1,
+  },
+  caseTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: MedicalColors.neutral[900],
+  },
+  caseSubtitle: {
+    fontSize: 14,
+    color: MedicalColors.neutral[600],
+    marginTop: 2,
+  },
+  priorityBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: MedicalColors.warning[100],
+    borderRadius: 8,
+  },
+  priorityText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: MedicalColors.warning[700],
+  },
+  caseDetails: {
+    gap: 12,
+    marginBottom: 16,
+  },
+  caseDetailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  caseDetailText: {
+    fontSize: 14,
+    color: MedicalColors.neutral[700],
+    flex: 1,
+  },
+  progressContainer: {
+    gap: 8,
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  progressTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: MedicalColors.neutral[900],
+  },
+  progressSubtitle: {
+    fontSize: 12,
+    color: MedicalColors.neutral[600],
+  },
+  progressBar: {
+    height: 8,
+    backgroundColor: MedicalColors.neutral[200],
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: MedicalColors.primary[600],
+    borderRadius: 4,
+  },
+  protocolCard: {
+    marginBottom: 20,
+  },
+  protocolHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    gap: 12,
+  },
+  protocolTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: MedicalColors.neutral[900],
+  },
+  stepsContainer: {
+    gap: 16,
+  },
+  stepItem: {
+    position: 'relative',
+  },
+  stepButton: {
+    flex: 1,
+  },
+  stepLeft: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 16,
+  },
+  stepIndicator: {
+    alignItems: 'center',
+    position: 'relative',
+  },
+  stepNumber: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  stepNumberText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  stepConnector: {
+    position: 'absolute',
+    top: 32,
+    left: 15,
+    width: 2,
+    height: 32,
+    backgroundColor: MedicalColors.neutral[300],
+  },
   stepContent: {
     flex: 1,
+    paddingBottom: 16,
+  },
+  stepHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
   },
   stepTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: 'rgb(49, 58, 52)',
-    marginBottom: 8,
+    fontSize: 16,
+    fontWeight: '600',
+    color: MedicalColors.neutral[900],
+  },
+  stepMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  stepStatus: {
+    fontSize: 12,
+    fontWeight: '500',
   },
   stepDescription: {
-    fontSize: 16,
-    color: 'rgb(100, 112, 103)',
-    lineHeight: 24,
-    marginBottom: 20,
-  },
-  protocolNote: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 15,
-    backgroundColor: 'rgba(132, 204, 22, 0.1)',
-    borderRadius: 12,
-    marginBottom: 25,
-    gap: 10,
-  },
-  protocolNoteText: {
     fontSize: 14,
-    color: 'rgb(49, 58, 52)',
-    flex: 1,
-  },
-  investigationsContainer: {
-    gap: 15,
-  },
-  investigationCard: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(132, 204, 22, 0.2)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  newInvestigationCard: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.2)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  investigationHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  investigationInfo: {
-    flex: 1,
-  },
-  investigationName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: 'rgb(49, 58, 52)',
-  },
-  investigationDate: {
-    fontSize: 14,
-    color: 'rgb(100, 112, 103)',
-    marginTop: 2,
-  },
-  investigationCost: {
-    fontSize: 14,
-    color: 'rgb(59, 130, 246)',
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  significanceBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  significanceText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: 'white',
-  },
-  urgencyBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  urgencyText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: 'white',
-  },
-  investigationResults: {
-    fontSize: 14,
-    color: 'rgb(100, 112, 103)',
-    marginBottom: 15,
-  },
-  investigationReason: {
-    fontSize: 14,
-    color: 'rgb(100, 112, 103)',
-    marginBottom: 15,
-  },
-  investigationDetails: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 15,
-  },
-  detailItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  detailText: {
-    fontSize: 12,
-    color: 'rgb(100, 112, 103)',
-  },
-  reviewButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    backgroundColor: 'rgba(132, 204, 22, 0.1)',
-    borderRadius: 12,
-    gap: 8,
-  },
-  reviewButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: 'rgb(132, 204, 22)',
-  },
-  orderButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    backgroundColor: 'rgb(59, 130, 246)',
-    borderRadius: 12,
-    gap: 8,
-  },
-  orderButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: 'white',
-  },
-  treatmentCard: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(132, 204, 22, 0.2)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  treatmentHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  diagnosisTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: 'rgb(49, 58, 52)',
-  },
-  confidenceContainer: {
-    backgroundColor: 'rgba(132, 204, 22, 0.1)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  confidenceText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: 'rgb(132, 204, 22)',
-  },
-  treatmentSection: {
-    marginBottom: 20,
-  },
-  treatmentSectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: 'rgb(49, 58, 52)',
-    marginBottom: 10,
-  },
-  medicationItem: {
+    color: MedicalColors.neutral[600],
+    lineHeight: 20,
     marginBottom: 8,
   },
-  medicationName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: 'rgb(49, 58, 52)',
-  },
-  medicationDetails: {
-    fontSize: 14,
-    color: 'rgb(100, 112, 103)',
-  },
-  lifestyleItem: {
+  stepFooter: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
-    gap: 8,
+    justifyContent: 'space-between',
   },
-  lifestyleText: {
+  stepDuration: {
+    fontSize: 12,
+    color: MedicalColors.neutral[500],
+    fontWeight: '500',
+  },
+  evidenceCard: {
+    marginBottom: 20,
+  },
+  evidenceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    gap: 12,
+  },
+  evidenceTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: MedicalColors.neutral[900],
+  },
+  evidenceContent: {
+    gap: 12,
+    marginBottom: 16,
+  },
+  evidenceItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  evidenceLabel: {
     fontSize: 14,
-    color: 'rgb(49, 58, 52)',
+    fontWeight: '500',
+    color: MedicalColors.neutral[700],
+  },
+  evidenceValue: {
+    fontSize: 14,
+    color: MedicalColors.neutral[600],
+    flex: 1,
+    textAlign: 'right',
+  },
+  qualityBadges: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  qualityBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: MedicalColors.neutral[100],
+    borderRadius: 12,
+    gap: 4,
+  },
+  qualityBadgeText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: MedicalColors.neutral[700],
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 20,
+  },
+  actionButton: {
     flex: 1,
   },
-  moreText: {
-    fontSize: 14,
-    color: 'rgb(132, 204, 22)',
-    fontWeight: '500',
-    marginTop: 5,
-  },
-  explainButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 15,
-    backgroundColor: 'rgb(132, 204, 22)',
+  trustSection: {
+    padding: 16,
+    backgroundColor: MedicalColors.primary[50],
     borderRadius: 12,
-    gap: 8,
-  },
-  explainButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: 'white',
-  },
-  bottomNav: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0, 0, 0, 0.1)',
-    backgroundColor: 'white',
-  },
-  navButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 25,
-    minWidth: 100,
-    justifyContent: 'center',
-  },
-  backNavButton: {
-    backgroundColor: 'rgba(132, 204, 22, 0.1)',
     borderWidth: 1,
-    borderColor: 'rgb(132, 204, 22)',
+    borderColor: MedicalColors.primary[200],
   },
-  nextNavButton: {
-    backgroundColor: 'rgb(132, 204, 22)',
-  },
-  backNavText: {
-    fontSize: 16,
+  trustTitle: {
+    fontSize: 18,
     fontWeight: '600',
-    color: 'rgb(132, 204, 22)',
-    marginLeft: 4,
+    color: MedicalColors.primary[900],
+    marginBottom: 8,
   },
-  nextNavText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: 'white',
-    marginRight: 4,
+  trustDescription: {
+    fontSize: 14,
+    color: MedicalColors.primary[700],
+    lineHeight: 20,
   },
+  // Modal styles
   modalContainer: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#FFFFFF',
   },
   modalHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 15,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
+    borderBottomColor: MedicalColors.neutral[200],
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: 'rgb(49, 58, 52)',
+    color: MedicalColors.neutral[900],
+  },
+  modalCloseButton: {
+    padding: 8,
   },
   modalContent: {
     flex: 1,
     paddingHorizontal: 20,
   },
-  modalInvestigationName: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: 'rgb(49, 58, 52)',
-    marginVertical: 20,
-  },
-  modalDiagnosisTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: 'rgb(49, 58, 52)',
-    marginVertical: 20,
-  },
   modalSection: {
-    marginBottom: 25,
+    marginBottom: 24,
   },
   modalSectionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: 'rgb(49, 58, 52)',
+    color: MedicalColors.neutral[900],
     marginBottom: 8,
   },
   modalSectionText: {
-    fontSize: 16,
-    color: 'rgb(100, 112, 103)',
-    lineHeight: 24,
-  },
-  modalSubText: {
     fontSize: 14,
-    color: 'rgb(100, 112, 103)',
-    marginTop: 5,
+    color: MedicalColors.neutral[600],
+    lineHeight: 20,
   },
-  significanceContainer: {
+  protocolDetailItem: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 8,
-  },
-  significanceIndicator: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  significanceLabel: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: 'rgb(49, 58, 52)',
-  },
-  followUpNote: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 15,
-    backgroundColor: 'rgba(251, 204, 21, 0.1)',
-    borderRadius: 12,
-    gap: 10,
-  },
-  followUpText: {
-    fontSize: 14,
-    color: 'rgb(49, 58, 52)',
-    flex: 1,
-  },
-  redFlagItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
     marginBottom: 8,
+  },
+  protocolDetailText: {
+    fontSize: 14,
+    color: MedicalColors.neutral[700],
+    flex: 1,
+  },
+  findingsContainer: {
     gap: 8,
   },
-  redFlagText: {
+  findingItem: {
     fontSize: 14,
-    color: 'rgb(49, 58, 52)',
-    flex: 1,
+    color: MedicalColors.neutral[600],
+    lineHeight: 20,
+  },
+  findingLabel: {
+    fontWeight: '600',
+    color: MedicalColors.neutral[700],
+  },
+  modalFooter: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: MedicalColors.neutral[200],
   },
 });
-
-export default MedicalProtocolFlowScreen; 

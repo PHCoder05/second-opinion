@@ -3,44 +3,60 @@ import {
   StyleSheet,
   SafeAreaView,
   View,
-  TextInput,
-  TouchableOpacity,
-  Text,
-  Image,
   ScrollView,
   Alert,
   Platform
 } from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
-import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
-import Animated, { FadeIn } from 'react-native-reanimated';
-import { IconSymbol } from '@/components/ui/IconSymbol';
+import { MedicalColors, MedicalGradients } from '@/constants/Colors';
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import { IconSymbol, Button, Input } from '@/components/ui';
 import { Link, useRouter } from 'expo-router';
 import { authService } from '../src/services/authService';
 import { profileService } from '../src/services/profileService';
 
 export default function SignInScreen() {
-  const colorScheme = useColorScheme() ?? 'light';
-  const styles = createStyles(colorScheme);
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [passwordVisible, setPasswordVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+
+  const validateForm = () => {
+    let isValid = true;
+    setEmailError('');
+    setPasswordError('');
+
+    if (!email) {
+      setEmailError('Email is required');
+      isValid = false;
+    } else if (!/\S+@\S+\.\S+/.test(email)) {
+      setEmailError('Please enter a valid email address');
+      isValid = false;
+    }
+
+    if (!password) {
+      setPasswordError('Password is required');
+      isValid = false;
+    } else if (password.length < 6) {
+      setPasswordError('Password must be at least 6 characters');
+      isValid = false;
+    }
+
+    return isValid;
+  };
 
   const handleSignIn = async () => {
-    if (!email || !password) {
-      Alert.alert('Error', 'Please enter both email and password.');
-      return;
-    }
+    if (!validateForm()) return;
 
     setIsLoading(true);
     try {
       const { data, error } = await authService.signIn(email, password);
       
       if (error) {
-        Alert.alert('Error', error.message);
+        Alert.alert('Sign In Failed', error.message);
         return;
       }
 
@@ -60,7 +76,7 @@ export default function SignInScreen() {
         if (profile && profile.first_name) {
           // User has profile, go directly to main app
           router.replace('/(tabs)');
-          Alert.alert('Welcome Back!', 'You have been signed in successfully. Your session will remain active until you manually log out.');
+          Alert.alert('Welcome Back!', 'You have been signed in successfully.');
         } else {
           // New user or incomplete profile, go to onboarding
           router.push('/onboarding');
@@ -74,246 +90,239 @@ export default function SignInScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView
-        style={styles.scrollContainer}
-        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingVertical: 40, paddingHorizontal: 16 }}
-        keyboardShouldPersistTaps="handled"
-      >
-        <Animated.View entering={FadeIn.duration(800).delay(200)} style={styles.content}>
-          <View style={styles.header}>
-            <Image
-              source={require('@/assets/images/partial-react-logo.png')}
-              style={styles.logo}
-            />
-          </View>
+    <View style={styles.container}>
+      <LinearGradient
+        colors={[MedicalColors.primary[50], '#FFFFFF']}
+        style={StyleSheet.absoluteFillObject}
+      />
+      
+      <SafeAreaView style={styles.safeArea}>
+        <ScrollView
+          style={styles.scrollContainer}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <Animated.View entering={FadeIn.duration(800).delay(200)} style={styles.content}>
+            {/* Header */}
+            <Animated.View style={styles.header} entering={FadeInDown.duration(600)}>
+              <View style={styles.logoContainer}>
+                <LinearGradient
+                  colors={MedicalGradients.primary}
+                  style={styles.logoGradient}
+                >
+                  <IconSymbol name="stethoscope" size={28} color="#FFFFFF" />
+                </LinearGradient>
+              </View>
+              <ThemedText type="title" style={styles.title}>Welcome Back</ThemedText>
+              <ThemedText style={styles.subtitle}>Sign in to continue your healthcare journey</ThemedText>
+            </Animated.View>
 
-          <View style={styles.formContainer}>
-            <View style={styles.titleContainer}>
-              <ThemedText type="title" style={styles.title}>Sign In</ThemedText>
-              <ThemedText style={styles.subtitle}>Let's experience the joy of telehealth AI</ThemedText>
-            </View>
+            {/* Form */}
+            <Animated.View style={styles.formContainer} entering={FadeInDown.duration(600).delay(200)}>
+              <View style={styles.inputsContainer}>
+                <Input
+                  label="Email Address"
+                  placeholder="Enter your email"
+                  value={email}
+                  onChangeText={setEmail}
+                  leftIcon="envelope"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  error={emailError}
+                  disabled={isLoading}
+                  required
+                />
 
-            <View style={styles.inputsContainer}>
-              <View style={styles.inputGroup}>
-                <ThemedText style={styles.inputLabel}>Email Address</ThemedText>
-                <View style={[styles.inputWrapper, styles.inputWrapperFocused]}>
-                  <IconSymbol name="email" size={24} color={Colors[colorScheme].text} />
-                  <TextInput
-                    value={email}
-                    onChangeText={setEmail}
-                    placeholder="Enter your email"
-                    style={[styles.input, { color: '#000' }]}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    placeholderTextColor={Colors[colorScheme].gray}
-                    editable={!isLoading}
-                  />
-                </View>
+                <Input
+                  label="Password"
+                  placeholder="Enter your password"
+                  value={password}
+                  onChangeText={setPassword}
+                  leftIcon="lock"
+                  secureTextEntry={true}
+                  error={passwordError}
+                  disabled={isLoading}
+                  required
+                />
+
+                <Button
+                  title={isLoading ? 'Signing In...' : 'Sign In'}
+                  onPress={handleSignIn}
+                  variant="primary"
+                  size="large"
+                  icon={isLoading ? undefined : "arrow.right"}
+                  iconPosition="right"
+                  loading={isLoading}
+                  disabled={isLoading}
+                  fullWidth
+                  style={styles.signInButton}
+                />
               </View>
 
-              <View style={styles.inputGroup}>
-                <ThemedText style={styles.inputLabel}>Password</ThemedText>
-                <View style={styles.inputWrapper}>
-                  <IconSymbol name="lock" size={24} color={Colors[colorScheme].text} />
-                  <TextInput
-                    value={password}
-                    onChangeText={setPassword}
-                    placeholder="Enter your password"
-                    style={[styles.input, { color: '#000' }]}
-                    secureTextEntry={!passwordVisible}
-                    placeholderTextColor={Colors[colorScheme].gray}
-                    editable={!isLoading}
-                  />
-                  <TouchableOpacity onPress={() => setPasswordVisible(!passwordVisible)} disabled={isLoading}>
-                    <IconSymbol name={passwordVisible ? "eye" : "eye-off"} size={24} color={Colors[colorScheme].gray} />
-                  </TouchableOpacity>
-                </View>
+              <View style={styles.divider}>
+                <View style={styles.dividerLine} />
+                <ThemedText style={styles.dividerText}>or continue with</ThemedText>
+                <View style={styles.dividerLine} />
               </View>
 
-              <TouchableOpacity 
-                style={[styles.button, isLoading && styles.buttonDisabled]} 
-                onPress={handleSignIn}
+              <View style={styles.socialContainer}>
+                <Button
+                  title="Google"
+                  onPress={() => {/* TODO: Implement Google Sign-In */}}
+                  variant="outline"
+                  size="medium"
+                  icon="globe"
+                  iconPosition="left"
+                  disabled={isLoading}
+                  style={styles.socialButton}
+                />
+                <Button
+                  title="Apple"
+                  onPress={() => {/* TODO: Implement Apple Sign-In */}}
+                  variant="outline"
+                  size="medium"
+                  icon="apple"
+                  iconPosition="left"
+                  disabled={isLoading}
+                  style={styles.socialButton}
+                />
+              </View>
+            </Animated.View>
+
+            {/* Footer */}
+            <Animated.View style={styles.footer} entering={FadeInDown.duration(600).delay(400)}>
+              <View style={styles.footerLinks}>
+                <ThemedText style={styles.footerText}>
+                  Don't have an account?{' '}
+                  <Link href="/signup" disabled={isLoading}>
+                    <ThemedText style={styles.link}>Sign Up</ThemedText>
+                  </Link>
+                </ThemedText>
+              </View>
+              
+              <Button
+                title="Forgot Password?"
+                onPress={() => router.push('/forgot-password')}
+                variant="ghost"
+                size="small"
                 disabled={isLoading}
-              >
-                <Text style={styles.buttonText}>{isLoading ? 'Signing In...' : 'Sign In'}</Text>
-                {!isLoading && <IconSymbol name="arrow.right" size={24} color="#FFFFFF" />}
-              </TouchableOpacity>
-            </View>
-            
-            <View style={styles.socialContainer}>
-                <View style={styles.socialButtons}>
-                    <TouchableOpacity style={styles.socialButton} disabled={isLoading}>
-                        <IconSymbol name="facebook" size={24} color={Colors.light.text} />
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.socialButton} disabled={isLoading}>
-                        <IconSymbol name="google" size={24} color={Colors.light.text} />
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.socialButton} disabled={isLoading}>
-                        <IconSymbol name="apple" size={24} color={Colors.light.text} />
-                    </TouchableOpacity>
-                </View>
-            </View>
-          </View>
-
-          <View style={styles.footer}>
-            <ThemedText style={{ color: '#000' }}>Don't have an account? </ThemedText>
-            <Link href="/signup" disabled={isLoading}>
-              <ThemedText style={[styles.link, { color: '#000' }]}>Sign Up</ThemedText>
-            </Link>
-          </View>
-          <TouchableOpacity 
-            onPress={() => router.push('/forgot-password')} 
-            style={{ marginTop: 16, alignSelf: 'center' }}
-            disabled={isLoading}
-          >
-            <Text style={{ color: '#000', textAlign: 'center', fontSize: 16, textDecorationLine: 'underline' }}>
-              Forgot your password?
-            </Text>
-          </TouchableOpacity>
-        </Animated.View>
-      </ScrollView>
-    </SafeAreaView>
+                style={styles.forgotButton}
+              />
+            </Animated.View>
+          </Animated.View>
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
 }
 
-const createStyles = (colorScheme: 'light' | 'dark') =>
-  StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: '#F5F5F5',
-    },
-    scrollContainer: {
-        flex: 1,
-    },
-    scrollContentContainer: {
-        paddingVertical: 40,
-        paddingHorizontal: 16,
-    },
-    content: {
-      alignItems: 'center',
-      gap: 32,
-    },
-    header: {
-      alignItems: 'center',
-    },
-    logo: {
-      width: 56,
-      height: 56,
-    },
-    formContainer: {
-      width: '100%',
-      gap: 32,
-    },
-    titleContainer: {
-      gap: 8,
-      alignItems: 'center',
-    },
-    title: {
-      color: 'rgb(49, 58, 52)',
-      textAlign: 'center',
-    },
-    subtitle: {
-      color: 'rgb(100, 112, 103)',
-      textAlign: 'center',
-      fontSize: 16,
-      lineHeight: 26,
-    },
-    inputsContainer: {
-        gap: 24,
-    },
-    inputGroup: {
-      gap: 8,
-    },
-    inputLabel: {
-      color: 'rgb(49, 58, 52)',
-      fontSize: 16,
-    },
-    inputWrapper: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: '#FFFFFF',
-      borderRadius: 21,
-      paddingHorizontal: 16,
-      height: 56,
-      shadowColor: "rgb(47, 60, 51)",
-      shadowOffset: {
-        width: 0,
-        height: 8,
-      },
-      shadowOpacity: 0.05,
-      shadowRadius: 16,
-      elevation: 1,
-      gap: 8,
-    },
-    inputWrapperFocused: {
-        borderColor: 'rgb(132, 204, 22)',
-        borderWidth: 1,
-        shadowColor: "rgb(132, 204, 22)",
-        shadowOffset: {
-            width: 0,
-            height: 0,
-        },
-        shadowOpacity: 0.25,
-        shadowRadius: 4,
-    },
-    input: {
-      flex: 1,
-      fontSize: 16,
-      color: Colors[colorScheme].text,
-    },
-    button: {
-      height: 56,
-      backgroundColor: 'rgb(132, 204, 22)',
-      borderRadius: 21,
-      flexDirection: 'row',
-      justifyContent: 'center',
-      alignItems: 'center',
-      gap: 12,
-      shadowColor: "rgb(132, 204, 22)",
-      shadowOffset: {
-        width: 0,
-        height: 0,
-      },
-      shadowOpacity: 0.25,
-      shadowRadius: 4,
-    },
-    buttonText: {
-      color: '#FFFFFF',
-      fontSize: 18,
-      fontWeight: 'bold',
-    },
-    socialContainer: {
-        alignItems: 'center',
-        gap: 40,
-    },
-    socialButtons: {
-        flexDirection: 'row',
-        gap: 8,
-    },
-    socialButton: {
-        width: 56,
-        height: 56,
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: 'rgb(162, 169, 164)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    footer: {
-      flexDirection: 'row',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    link: {
-      color: 'rgb(132, 204, 22)',
-      fontWeight: 'bold',
-    },
-    centeredWrapper: {
-      flex: 1,
-      justifyContent: 'center',
-    },
-    buttonDisabled: {
-      opacity: 0.7,
-    },
-  }); 
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  safeArea: {
+    flex: 1,
+  },
+  scrollContainer: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 24,
+  },
+  content: {
+    alignItems: 'center',
+    gap: 40,
+  },
+  header: {
+    alignItems: 'center',
+    gap: 16,
+  },
+  logoContainer: {
+    marginBottom: 8,
+  },
+  logoGradient: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: MedicalColors.primary[500],
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  title: {
+    color: MedicalColors.neutral[900],
+    textAlign: 'center',
+    fontSize: 28,
+    fontWeight: '700',
+  },
+  subtitle: {
+    color: MedicalColors.neutral[600],
+    textAlign: 'center',
+    fontSize: 16,
+    lineHeight: 24,
+    fontWeight: '500',
+  },
+  formContainer: {
+    width: '100%',
+    gap: 24,
+  },
+  inputsContainer: {
+    gap: 20,
+  },
+  signInButton: {
+    marginTop: 8,
+    shadowColor: MedicalColors.primary[500],
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 8,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: MedicalColors.neutral[200],
+  },
+  dividerText: {
+    color: MedicalColors.neutral[500],
+    fontSize: 14,
+    paddingHorizontal: 16,
+  },
+  socialContainer: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  socialButton: {
+    flex: 1,
+  },
+  footer: {
+    alignItems: 'center',
+    gap: 16,
+  },
+  footerLinks: {
+    alignItems: 'center',
+  },
+  footerText: {
+    color: MedicalColors.neutral[600],
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  link: {
+    color: MedicalColors.primary[600],
+    fontWeight: '600',
+  },
+  forgotButton: {
+    marginTop: 8,
+  },
+}); 

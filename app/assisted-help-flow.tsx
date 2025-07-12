@@ -1,792 +1,691 @@
-import { IconSymbol } from '@/components/ui/IconSymbol';
-import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-    Alert,
-    Modal,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  SafeAreaView,
+  TouchableOpacity,
+  Alert,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
-import Animated, { FadeIn, SlideInRight } from 'react-native-reanimated';
+import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import { IconSymbol, Card, Button, Input } from '@/components/ui';
+import { MedicalColors, MedicalGradients } from '@/constants/Colors';
+import * as Haptics from 'expo-haptics';
+import Animated, { FadeIn, FadeInDown, FadeInUp } from 'react-native-reanimated';
+
+interface ChatMessage {
+  id: string;
+  text: string;
+  sender: 'user' | 'support' | 'system';
+  timestamp: Date;
+  type?: 'text' | 'question' | 'info' | 'document-request';
+}
 
 interface SupportAgent {
   id: string;
   name: string;
-  title: string;
-  specialization: string;
-  experience: string;
+  role: string;
   avatar: string;
   isOnline: boolean;
+  specialization: string;
 }
 
-interface SOPStep {
-  id: string;
-  title: string;
-  description: string;
-  questions: string[];
-  required: boolean;
-  completed: boolean;
-}
-
-interface PatientData {
-  basicInfo: Record<string, any>;
-  symptoms: Record<string, any>;
-  medicalHistory: Record<string, any>;
-  currentTreatment: Record<string, any>;
-  investigations: Record<string, any>;
-  concerns: Record<string, any>;
-}
-
-const AssistedHelpFlowScreen = () => {
+export default function AssistedHelpFlow() {
   const router = useRouter();
-  const [currentStep, setCurrentStep] = useState(0);
-  const [supportAgent, setSupportAgent] = useState<SupportAgent | null>(null);
   const [isConnecting, setIsConnecting] = useState(true);
-  const [chatVisible, setChatVisible] = useState(false);
-  const [patientData, setPatientData] = useState<PatientData>({
-    basicInfo: {},
-    symptoms: {},
-    medicalHistory: {},
-    currentTreatment: {},
-    investigations: {},
-    concerns: {}
-  });
-
-  const sopSteps: SOPStep[] = [
-    {
-      id: 'patient-identification',
-      title: 'Patient Identification & Verification',
-      description: 'Verify patient identity and establish secure communication',
-      questions: [
-        'Can you confirm your full name and date of birth?',
-        'What is your primary phone number?',
-        'Do you have any medical ID or insurance information?'
-      ],
-      required: true,
-      completed: false
-    },
-    {
-      id: 'chief-complaint',
-      title: 'Chief Complaint Assessment',
-      description: 'Identify primary reason for seeking second opinion',
-      questions: [
-        'What is your main health concern today?',
-        'When did you first notice this problem?',
-        'What prompted you to seek a second opinion?',
-        'How is this affecting your daily life?'
-      ],
-      required: true,
-      completed: false
-    },
-    {
-      id: 'symptom-analysis',
-      title: 'Comprehensive Symptom Analysis',
-      description: 'Detailed symptom mapping using standardized protocols',
-      questions: [
-        'Can you describe your symptoms in detail?',
-        'On a scale of 1-10, how severe are your symptoms?',
-        'Do your symptoms come and go, or are they constant?',
-        'What makes your symptoms better or worse?',
-        'Have you noticed any patterns or triggers?'
-      ],
-      required: true,
-      completed: false
-    },
-    {
-      id: 'medical-history',
-      title: 'Medical History Collection',
-      description: 'Gather comprehensive medical background',
-      questions: [
-        'Do you have any chronic medical conditions?',
-        'What medications are you currently taking?',
-        'Do you have any known allergies?',
-        'Any previous surgeries or hospitalizations?',
-        'Family history of relevant conditions?'
-      ],
-      required: true,
-      completed: false
-    },
-    {
-      id: 'current-treatment',
-      title: 'Current Treatment Evaluation',
-      description: 'Review existing treatment plans and effectiveness',
-      questions: [
-        'What treatment are you currently receiving?',
-        'Who is your current healthcare provider?',
-        'How long have you been on this treatment?',
-        'What has been the response to treatment?',
-        'Are you experiencing any side effects?'
-      ],
-      required: true,
-      completed: false
-    },
-    {
-      id: 'investigations-review',
-      title: 'Investigations & Test Results',
-      description: 'Review all available test results and investigations',
-      questions: [
-        'What tests have you had done recently?',
-        'Do you have copies of your test results?',
-        'Have you had any imaging studies (X-rays, CT, MRI)?',
-        'Any lab work or blood tests?',
-        'Are there any tests your doctor recommended?'
-      ],
-      required: true,
-      completed: false
-    },
-    {
-      id: 'specific-concerns',
-      title: 'Specific Concerns & Questions',
-      description: 'Address patient-specific questions and concerns',
-      questions: [
-        'What specific questions do you have about your condition?',
-        'Are you concerned about the proposed treatment?',
-        'What outcomes are you hoping for?',
-        'Are there any alternative treatments you\'ve heard about?',
-        'What are your main fears or worries?'
-      ],
-      required: true,
-      completed: false
-    }
-  ];
-
-  const supportAgents: SupportAgent[] = [
-    {
-      id: '1',
-      name: 'Dr. Sarah Chen',
-      title: 'Medical Support Specialist',
-      specialization: 'Internal Medicine',
-      experience: '8 years',
-      avatar: '👩‍⚕️',
-      isOnline: true
-    },
-    {
-      id: '2',
-      name: 'Dr. Michael Rodriguez',
-      title: 'Clinical Assessment Lead',
-      specialization: 'Emergency Medicine',
-      experience: '12 years',
-      avatar: '👨‍⚕️',
-      isOnline: true
-    },
-    {
-      id: '3',
-      name: 'Dr. Emily Johnson',
-      title: 'Patient Care Coordinator',
-      specialization: 'Family Medicine',
-      experience: '6 years',
-      avatar: '👩‍⚕️',
-      isOnline: true
-    }
-  ];
+  const [isConnected, setIsConnected] = useState(false);
+  const [currentMessage, setCurrentMessage] = useState('');
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [supportAgent, setSupportAgent] = useState<SupportAgent | null>(null);
+  const [isTyping, setIsTyping] = useState(false);
+  const [currentStep, setCurrentStep] = useState('connecting');
 
   useEffect(() => {
-    // Simulate connecting to support agent
-    const timer = setTimeout(() => {
-      const availableAgents = supportAgents.filter(agent => agent.isOnline);
-      const randomAgent = availableAgents[Math.floor(Math.random() * availableAgents.length)];
-      setSupportAgent(randomAgent);
+    // Simulate connection to support team
+    const connectionTimer = setTimeout(() => {
       setIsConnecting(false);
+      setIsConnected(true);
+      setCurrentStep('connected');
+      
+      // Set mock support agent
+      setSupportAgent({
+        id: '1',
+        name: 'Dr. Sarah Johnson',
+        role: 'Medical Support Specialist',
+        avatar: '👩‍⚕️',
+        isOnline: true,
+        specialization: 'Internal Medicine'
+      });
+
+      // Add welcome messages
+      addSystemMessage('Connected to medical support team');
+      setTimeout(() => {
+        addSupportMessage(
+          "Hello! I'm Dr. Sarah Johnson, your medical support specialist. I'll guide you through collecting your medical information to ensure we have everything needed for your second opinion. Let's start with understanding your main health concern."
+        );
+      }, 1000);
+      
+      setTimeout(() => {
+        addSupportMessage(
+          "Could you tell me what brings you here today? What's your main health concern or symptom?",
+          'question'
+        );
+      }, 2000);
+      
     }, 3000);
 
-    return () => clearTimeout(timer);
+    return () => clearTimeout(connectionTimer);
   }, []);
 
-  const handleStepComplete = (stepId: string) => {
-    const updatedSteps = sopSteps.map(step => 
-      step.id === stepId ? { ...step, completed: true } : step
+  const addSystemMessage = (text: string) => {
+    const message: ChatMessage = {
+      id: Date.now().toString(),
+      text,
+      sender: 'system',
+      timestamp: new Date(),
+      type: 'info'
+    };
+    setMessages(prev => [...prev, message]);
+  };
+
+  const addSupportMessage = (text: string, type: 'text' | 'question' | 'info' | 'document-request' = 'text') => {
+    const message: ChatMessage = {
+      id: Date.now().toString(),
+      text,
+      sender: 'support',
+      timestamp: new Date(),
+      type
+    };
+    setMessages(prev => [...prev, message]);
+  };
+
+  const sendMessage = async () => {
+    if (!currentMessage.trim()) return;
+
+    const userMessage: ChatMessage = {
+      id: Date.now().toString(),
+      text: currentMessage,
+      sender: 'user',
+      timestamp: new Date(),
+      type: 'text'
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    setCurrentMessage('');
+    setIsTyping(true);
+
+    // Simulate AI/support response
+    setTimeout(() => {
+      setIsTyping(false);
+      handleSupportResponse(userMessage.text);
+    }, 1500);
+  };
+
+  const handleSupportResponse = (userText: string) => {
+    const responses = [
+      "Thank you for sharing that information. That helps me understand your situation better.",
+      "I see. Can you tell me more about when these symptoms started?",
+      "That's important information. Do you have any medical records or test results related to this?",
+      "Have you seen any doctors about this concern before? If so, what was their diagnosis or treatment plan?",
+      "Are you currently taking any medications for this condition?",
+      "Do you have any allergies to medications or other substances?",
+      "On a scale of 1-10, how would you rate your pain or discomfort level?",
+      "Are there any other symptoms you're experiencing that might be related?",
+      "Thank you for providing all that information. Let me help you upload any relevant medical documents you might have."
+    ];
+
+    const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+    addSupportMessage(randomResponse, 'question');
+  };
+
+  const handleDocumentUpload = () => {
+    addSupportMessage(
+      "I can help you upload your medical documents. Please share any test results, previous diagnoses, or treatment records you have. This will help our medical team provide you with the most accurate second opinion.",
+      'document-request'
     );
+  };
+
+  const handleCallRequest = () => {
+    Alert.alert(
+      'Schedule Call',
+      'Would you like to schedule a phone call with our medical support team?',
+      [
+        { text: 'Not now', style: 'cancel' },
+        { 
+          text: 'Schedule Call', 
+          onPress: () => {
+            Alert.alert('Call Scheduled', 'We\'ll call you within the next 15 minutes.');
+            addSystemMessage('Phone call scheduled - expect a call within 15 minutes');
+          }
+        }
+      ]
+    );
+  };
+
+  const handleVideoCall = () => {
+    Alert.alert(
+      'Video Consultation',
+      'Start a video call with your medical support specialist?',
+      [
+        { text: 'Not now', style: 'cancel' },
+        { 
+          text: 'Start Video Call', 
+          onPress: () => {
+            Alert.alert('Video Call', 'Video consultation feature coming soon!');
+          }
+        }
+      ]
+    );
+  };
+
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const renderMessage = (message: ChatMessage) => {
+    const isUser = message.sender === 'user';
+    const isSystem = message.sender === 'system';
     
-    const currentStepIndex = sopSteps.findIndex(step => step.id === stepId);
-    if (currentStepIndex < sopSteps.length - 1) {
-      setCurrentStep(currentStepIndex + 1);
-    } else {
-      handleAssessmentComplete();
-    }
-  };
-
-  const handleAssessmentComplete = () => {
-    Alert.alert(
-      'Assessment Complete',
-      'Thank you for providing comprehensive information. Our medical team will now review your case and provide a detailed second opinion within 24 hours.',
-      [
-        { text: 'View Summary', onPress: () => router.push('/assessment-summary') },
-        { text: 'Back to Dashboard', onPress: () => router.push('/(tabs)') }
-      ]
-    );
-  };
-
-  const handleEmergencyEscalation = () => {
-    Alert.alert(
-      'Emergency Protocol Activated',
-      'Based on your symptoms, we recommend immediate medical attention. We\'re connecting you with emergency services.',
-      [
-        { text: 'Call 911', onPress: () => {} },
-        { text: 'Find Nearest ER', onPress: () => {} }
-      ]
+    return (
+      <Animated.View
+        key={message.id}
+        entering={FadeInUp.duration(300)}
+        style={[
+          styles.messageContainer,
+          isUser && styles.userMessageContainer,
+          isSystem && styles.systemMessageContainer
+        ]}
+      >
+        {!isUser && !isSystem && (
+          <View style={styles.agentAvatar}>
+            <Text style={styles.avatarText}>{supportAgent?.avatar}</Text>
+          </View>
+        )}
+        
+        <View style={[
+          styles.messageBubble,
+          isUser && styles.userMessageBubble,
+          isSystem && styles.systemMessageBubble,
+          message.type === 'question' && styles.questionBubble,
+          message.type === 'document-request' && styles.documentRequestBubble
+        ]}>
+          <Text style={[
+            styles.messageText,
+            isUser && styles.userMessageText,
+            isSystem && styles.systemMessageText
+          ]}>
+            {message.text}
+          </Text>
+          <Text style={[
+            styles.messageTime,
+            isUser && styles.userMessageTime
+          ]}>
+            {formatTime(message.timestamp)}
+          </Text>
+        </View>
+      </Animated.View>
     );
   };
 
   if (isConnecting) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.connectingContainer}>
-          <Animated.View entering={FadeIn} style={styles.connectingContent}>
-            <IconSymbol name="person.2.fill" size={64} color="rgb(132, 204, 22)" />
-            <Text style={styles.connectingTitle}>Connecting You to Medical Support</Text>
-            <Text style={styles.connectingSubtitle}>
-              We're matching you with the best available medical support specialist...
-            </Text>
-            <View style={styles.connectingSteps}>
-              <Text style={styles.connectingStep}>✓ Verifying your consultation</Text>
-              <Text style={styles.connectingStep}>✓ Reviewing your initial information</Text>
-              <Text style={styles.connectingStep}>⏳ Matching with specialist</Text>
-              <Text style={styles.connectingStep}>⏳ Establishing secure connection</Text>
-            </View>
-          </Animated.View>
-        </View>
-      </SafeAreaView>
+      <View style={styles.container}>
+        <LinearGradient
+          colors={[MedicalColors.primary[50], MedicalColors.secondary[50], '#FFFFFF']}
+          locations={[0, 0.3, 1]}
+          style={StyleSheet.absoluteFillObject}
+        />
+        
+        <SafeAreaView style={styles.safeArea}>
+          <View style={styles.connectingContainer}>
+            <Animated.View entering={FadeIn.duration(800)} style={styles.connectingContent}>
+              <View style={styles.connectingIcon}>
+                <LinearGradient
+                  colors={MedicalGradients.primary}
+                  style={styles.connectingIconGradient}
+                >
+                  <IconSymbol name="person.2" size={32} color="#FFFFFF" />
+                </LinearGradient>
+              </View>
+              
+              <Text style={styles.connectingTitle}>Connecting to Medical Support</Text>
+              <Text style={styles.connectingSubtitle}>
+                We're connecting you with a medical support specialist who will guide you through the process
+              </Text>
+              
+              <View style={styles.connectingSteps}>
+                <View style={styles.connectingStep}>
+                  <IconSymbol name="checkmark.circle.fill" size={20} color={MedicalColors.secondary[600]} />
+                  <Text style={styles.connectingStepText}>Finding available specialist</Text>
+                </View>
+                <View style={styles.connectingStep}>
+                  <IconSymbol name="checkmark.circle.fill" size={20} color={MedicalColors.secondary[600]} />
+                  <Text style={styles.connectingStepText}>Reviewing your consultation request</Text>
+                </View>
+                <View style={styles.connectingStep}>
+                  <IconSymbol name="arrow.clockwise" size={20} color={MedicalColors.primary[600]} />
+                  <Text style={styles.connectingStepText}>Establishing secure connection</Text>
+                </View>
+              </View>
+            </Animated.View>
+          </View>
+        </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header with Support Agent */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <IconSymbol name="chevron.left" size={24} color="rgb(49, 58, 52)" />
-        </TouchableOpacity>
-        
-        <View style={styles.agentInfo}>
-          <Text style={styles.agentAvatar}>{supportAgent?.avatar}</Text>
-          <View style={styles.agentDetails}>
-            <Text style={styles.agentName}>{supportAgent?.name}</Text>
-            <Text style={styles.agentTitle}>{supportAgent?.title}</Text>
+    <View style={styles.container}>
+      <LinearGradient
+        colors={[MedicalColors.primary[50], MedicalColors.secondary[50], '#FFFFFF']}
+        locations={[0, 0.3, 1]}
+        style={StyleSheet.absoluteFillObject}
+      />
+      
+      <SafeAreaView style={styles.safeArea}>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backButton}
+          >
+            <IconSymbol name="chevron.left" size={24} color={MedicalColors.primary[600]} />
+          </TouchableOpacity>
+          
+          <View style={styles.headerContent}>
+            <Text style={styles.headerTitle}>Medical Support</Text>
+            {supportAgent && (
+              <Text style={styles.headerSubtitle}>
+                {supportAgent.name} • {supportAgent.specialization}
+              </Text>
+            )}
           </View>
-          <View style={styles.statusIndicator}>
-            <View style={styles.onlineIndicator} />
-            <Text style={styles.statusText}>Online</Text>
+          
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              onPress={handleCallRequest}
+              style={styles.headerAction}
+            >
+              <IconSymbol name="phone" size={20} color={MedicalColors.primary[600]} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={handleVideoCall}
+              style={styles.headerAction}
+            >
+              <IconSymbol name="video" size={20} color={MedicalColors.primary[600]} />
+            </TouchableOpacity>
           </View>
         </View>
-        
-        <TouchableOpacity style={styles.chatButton} onPress={() => setChatVisible(true)}>
-          <IconSymbol name="message.fill" size={24} color="rgb(132, 204, 22)" />
-        </TouchableOpacity>
-      </View>
 
-      {/* Progress Indicator */}
-      <View style={styles.progressContainer}>
-        <View style={styles.progressHeader}>
-          <Text style={styles.progressTitle}>Medical Assessment Progress</Text>
-          <Text style={styles.progressSubtitle}>
-            Step {currentStep + 1} of {sopSteps.length}
+        {/* Quick Actions */}
+        <View style={styles.quickActions}>
+          <TouchableOpacity
+            style={styles.quickAction}
+            onPress={handleDocumentUpload}
+          >
+            <IconSymbol name="doc.text" size={16} color={MedicalColors.primary[600]} />
+            <Text style={styles.quickActionText}>Upload Documents</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={styles.quickAction}
+            onPress={() => router.push('/symptom-checker')}
+          >
+            <IconSymbol name="stethoscope" size={16} color={MedicalColors.primary[600]} />
+            <Text style={styles.quickActionText}>Symptom Checker</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={styles.quickAction}
+            onPress={() => addSupportMessage("I need help with understanding my medical records")}
+          >
+            <IconSymbol name="questionmark.circle" size={16} color={MedicalColors.primary[600]} />
+            <Text style={styles.quickActionText}>Get Help</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Chat Messages */}
+        <ScrollView
+          style={styles.messagesContainer}
+          contentContainerStyle={styles.messagesContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {messages.map(renderMessage)}
+          
+          {isTyping && (
+            <Animated.View
+              entering={FadeIn.duration(300)}
+              style={styles.typingIndicator}
+            >
+              <View style={styles.agentAvatar}>
+                <Text style={styles.avatarText}>{supportAgent?.avatar}</Text>
+              </View>
+              <View style={styles.typingBubble}>
+                <Text style={styles.typingText}>Dr. Sarah is typing...</Text>
+              </View>
+            </Animated.View>
+          )}
+        </ScrollView>
+
+        {/* Message Input */}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.inputContainer}
+        >
+          <View style={styles.inputWrapper}>
+            <TextInput
+              style={styles.messageInput}
+              placeholder="Type your message..."
+              placeholderTextColor={MedicalColors.neutral[400]}
+              value={currentMessage}
+              onChangeText={setCurrentMessage}
+              multiline
+              maxLength={1000}
+            />
+            <TouchableOpacity
+              style={[
+                styles.sendButton,
+                currentMessage.trim() ? styles.sendButtonActive : styles.sendButtonInactive
+              ]}
+              onPress={sendMessage}
+              disabled={!currentMessage.trim()}
+            >
+              <IconSymbol 
+                name="arrow.up" 
+                size={20} 
+                color={currentMessage.trim() ? '#FFFFFF' : MedicalColors.neutral[400]} 
+              />
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+
+        {/* Support Info */}
+        <View style={styles.supportInfo}>
+          <View style={styles.supportStatus}>
+            <View style={[styles.statusDot, { backgroundColor: MedicalColors.secondary[600] }]} />
+            <Text style={styles.statusText}>Medical team online</Text>
+          </View>
+          <Text style={styles.supportNote}>
+            Your conversation is secure and HIPAA compliant
           </Text>
         </View>
-        <View style={styles.progressBar}>
-          <Animated.View 
-            style={[
-              styles.progressFill,
-              { width: `${((currentStep + 1) / sopSteps.length) * 100}%` }
-            ]}
-            entering={SlideInRight}
-          />
-        </View>
-      </View>
-
-      {/* Current SOP Step */}
-      <ScrollView 
-        style={styles.content}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-      >
-        <Animated.View entering={FadeIn} key={currentStep}>
-          <View style={styles.stepContainer}>
-            <View style={styles.stepHeader}>
-              <Text style={styles.stepTitle}>{sopSteps[currentStep]?.title}</Text>
-              <Text style={styles.stepDescription}>{sopSteps[currentStep]?.description}</Text>
-            </View>
-
-            <View style={styles.questionsContainer}>
-              <Text style={styles.questionsTitle}>
-                {supportAgent?.name} will guide you through these questions:
-              </Text>
-              
-              {sopSteps[currentStep]?.questions.map((question, index) => (
-                <View key={index} style={styles.questionItem}>
-                  <View style={styles.questionNumber}>
-                    <Text style={styles.questionNumberText}>{index + 1}</Text>
-                  </View>
-                  <Text style={styles.questionText}>{question}</Text>
-                </View>
-              ))}
-            </View>
-
-            <View style={styles.sopGuidance}>
-              <IconSymbol name="checkmark.shield" size={24} color="rgb(132, 204, 22)" />
-              <View style={styles.sopGuidanceText}>
-                <Text style={styles.sopGuidanceTitle}>Standardized Medical Protocol</Text>
-                <Text style={styles.sopGuidanceDescription}>
-                  Our medical team follows evidence-based protocols to ensure comprehensive 
-                  and consistent assessments for all patients.
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.actionButtons}>
-              <TouchableOpacity
-                style={styles.emergencyButton}
-                onPress={handleEmergencyEscalation}
-              >
-                <IconSymbol name="exclamationmark.triangle.fill" size={20} color="rgb(239, 68, 68)" />
-                <Text style={styles.emergencyButtonText}>Emergency</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={styles.completeButton}
-                onPress={() => handleStepComplete(sopSteps[currentStep].id)}
-              >
-                <Text style={styles.completeButtonText}>Complete Step</Text>
-                <IconSymbol name="checkmark.circle.fill" size={20} color="white" />
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Animated.View>
-
-        {/* SOP Steps Overview */}
-        <View style={styles.stepsOverview}>
-          <Text style={styles.overviewTitle}>Assessment Steps</Text>
-          {sopSteps.map((step, index) => (
-            <View key={step.id} style={styles.stepOverviewItem}>
-              <View style={[
-                styles.stepOverviewIndicator,
-                index < currentStep ? styles.stepCompleted :
-                index === currentStep ? styles.stepCurrent : styles.stepPending
-              ]}>
-                {index < currentStep ? (
-                  <IconSymbol name="checkmark" size={16} color="white" />
-                ) : (
-                  <Text style={styles.stepOverviewNumber}>{index + 1}</Text>
-                )}
-              </View>
-              <View style={styles.stepOverviewContent}>
-                <Text style={[
-                  styles.stepOverviewTitle,
-                  index === currentStep && styles.stepOverviewTitleCurrent
-                ]}>
-                  {step.title}
-                </Text>
-                <Text style={styles.stepOverviewDescription}>
-                  {step.description}
-                </Text>
-              </View>
-            </View>
-          ))}
-        </View>
-      </ScrollView>
-
-      {/* Chat Modal */}
-      <Modal
-        visible={chatVisible}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setChatVisible(false)}
-      >
-        <SafeAreaView style={styles.chatContainer}>
-          <View style={styles.chatHeader}>
-            <Text style={styles.chatTitle}>Live Chat with {supportAgent?.name}</Text>
-            <TouchableOpacity onPress={() => setChatVisible(false)}>
-              <IconSymbol name="xmark" size={24} color="rgb(100, 112, 103)" />
-            </TouchableOpacity>
-          </View>
-          
-          <View style={styles.chatContent}>
-            <View style={styles.chatMessage}>
-              <Text style={styles.chatMessageText}>
-                Hello! I'm here to help guide you through your medical assessment. 
-                I'll ask you structured questions based on our standardized protocols 
-                to ensure we capture all the necessary information for your second opinion.
-              </Text>
-            </View>
-            
-            <View style={styles.chatMessage}>
-              <Text style={styles.chatMessageText}>
-                Feel free to ask me any questions or request clarification at any time. 
-                Everything we discuss is confidential and HIPAA compliant.
-              </Text>
-            </View>
-          </View>
-          
-          <View style={styles.chatInput}>
-            <TextInput
-              style={styles.chatInputField}
-              placeholder="Type your message..."
-              multiline
-            />
-            <TouchableOpacity style={styles.chatSendButton}>
-              <IconSymbol name="paperplane.fill" size={20} color="white" />
-            </TouchableOpacity>
-          </View>
-        </SafeAreaView>
-      </Modal>
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+  },
+  safeArea: {
+    flex: 1,
   },
   connectingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 40,
+    paddingHorizontal: 32,
   },
   connectingContent: {
     alignItems: 'center',
   },
+  connectingIcon: {
+    marginBottom: 24,
+  },
+  connectingIconGradient: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: MedicalColors.primary[500],
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 8,
+  },
   connectingTitle: {
     fontSize: 24,
     fontWeight: '700',
-    color: 'rgb(49, 58, 52)',
-    marginTop: 20,
-    marginBottom: 10,
+    color: MedicalColors.neutral[900],
     textAlign: 'center',
+    marginBottom: 12,
   },
   connectingSubtitle: {
     fontSize: 16,
-    color: 'rgb(100, 112, 103)',
+    color: MedicalColors.neutral[600],
     textAlign: 'center',
-    marginBottom: 30,
+    lineHeight: 24,
+    marginBottom: 32,
   },
   connectingSteps: {
-    alignItems: 'flex-start',
+    gap: 16,
   },
   connectingStep: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  connectingStepText: {
     fontSize: 16,
-    color: 'rgb(100, 112, 103)',
-    marginBottom: 10,
+    color: MedicalColors.neutral[700],
+    fontWeight: '500',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 15,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
-    backgroundColor: 'rgba(132, 204, 22, 0.05)',
+    borderBottomColor: MedicalColors.neutral[200],
   },
   backButton: {
     padding: 8,
   },
-  agentInfo: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 10,
-  },
-  agentAvatar: {
-    fontSize: 32,
-    marginRight: 12,
-  },
-  agentDetails: {
-    flex: 1,
-  },
-  agentName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: 'rgb(49, 58, 52)',
-  },
-  agentTitle: {
-    fontSize: 14,
-    color: 'rgb(100, 112, 103)',
-  },
-  statusIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  onlineIndicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: 'rgb(34, 197, 94)',
-    marginRight: 4,
-  },
-  statusText: {
-    fontSize: 12,
-    color: 'rgb(34, 197, 94)',
-    fontWeight: '500',
-  },
-  chatButton: {
-    padding: 8,
-  },
-  progressContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    backgroundColor: 'rgba(132, 204, 22, 0.02)',
-  },
-  progressHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  progressTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: 'rgb(49, 58, 52)',
-  },
-  progressSubtitle: {
-    fontSize: 14,
-    color: 'rgb(100, 112, 103)',
-  },
-  progressBar: {
-    height: 6,
-    backgroundColor: 'rgba(132, 204, 22, 0.2)',
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: 'rgb(132, 204, 22)',
-    borderRadius: 3,
-  },
-  content: {
-    flex: 1,
-  },
-  contentContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-  },
-  stepContainer: {
-    marginTop: 20,
-  },
-  stepHeader: {
-    marginBottom: 25,
-  },
-  stepTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: 'rgb(49, 58, 52)',
-    marginBottom: 8,
-  },
-  stepDescription: {
-    fontSize: 16,
-    color: 'rgb(100, 112, 103)',
-    lineHeight: 24,
-  },
-  questionsContainer: {
-    marginBottom: 30,
-  },
-  questionsTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: 'rgb(49, 58, 52)',
-    marginBottom: 20,
-  },
-  questionItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 15,
-  },
-  questionNumber: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgb(132, 204, 22)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-    marginTop: 2,
-  },
-  questionNumberText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: 'white',
-  },
-  questionText: {
-    fontSize: 16,
-    color: 'rgb(49, 58, 52)',
-    flex: 1,
-    lineHeight: 24,
-  },
-  sopGuidance: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    padding: 20,
-    backgroundColor: 'rgba(132, 204, 22, 0.1)',
-    borderRadius: 16,
-    marginBottom: 30,
-  },
-  sopGuidanceText: {
+  headerContent: {
     flex: 1,
     marginLeft: 12,
   },
-  sopGuidanceTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: 'rgb(49, 58, 52)',
-    marginBottom: 5,
-  },
-  sopGuidanceDescription: {
-    fontSize: 14,
-    color: 'rgb(100, 112, 103)',
-    lineHeight: 20,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 30,
-  },
-  emergencyButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    borderRadius: 25,
-    borderWidth: 1,
-    borderColor: 'rgb(239, 68, 68)',
-    gap: 8,
-  },
-  emergencyButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: 'rgb(239, 68, 68)',
-  },
-  completeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 30,
-    paddingVertical: 12,
-    backgroundColor: 'rgb(132, 204, 22)',
-    borderRadius: 25,
-    gap: 8,
-  },
-  completeButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: 'white',
-  },
-  stepsOverview: {
-    marginTop: 20,
-  },
-  overviewTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: 'rgb(49, 58, 52)',
-    marginBottom: 20,
-  },
-  stepOverviewItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 15,
-  },
-  stepOverviewIndicator: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 15,
-  },
-  stepCompleted: {
-    backgroundColor: 'rgb(34, 197, 94)',
-  },
-  stepCurrent: {
-    backgroundColor: 'rgb(132, 204, 22)',
-  },
-  stepPending: {
-    backgroundColor: 'rgba(132, 204, 22, 0.2)',
-  },
-  stepOverviewNumber: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: 'rgb(100, 112, 103)',
-  },
-  stepOverviewContent: {
-    flex: 1,
-  },
-  stepOverviewTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: 'rgb(100, 112, 103)',
-    marginBottom: 4,
-  },
-  stepOverviewTitleCurrent: {
-    color: 'rgb(49, 58, 52)',
-  },
-  stepOverviewDescription: {
-    fontSize: 14,
-    color: 'rgb(100, 112, 103)',
-    lineHeight: 20,
-  },
-  chatContainer: {
-    flex: 1,
-    backgroundColor: '#ffffff',
-  },
-  chatHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
-  },
-  chatTitle: {
+  headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: 'rgb(49, 58, 52)',
+    color: MedicalColors.neutral[900],
   },
-  chatContent: {
-    flex: 1,
-    padding: 20,
+  headerSubtitle: {
+    fontSize: 14,
+    color: MedicalColors.neutral[600],
+    marginTop: 2,
   },
-  chatMessage: {
-    backgroundColor: 'rgba(132, 204, 22, 0.1)',
-    padding: 15,
-    borderRadius: 16,
-    marginBottom: 15,
-  },
-  chatMessageText: {
-    fontSize: 16,
-    color: 'rgb(49, 58, 52)',
-    lineHeight: 24,
-  },
-  chatInput: {
+  headerActions: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0, 0, 0, 0.1)',
+    gap: 8,
   },
-  chatInputField: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: 'rgba(132, 204, 22, 0.3)',
-    borderRadius: 20,
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    fontSize: 16,
-    maxHeight: 100,
-    marginRight: 10,
-  },
-  chatSendButton: {
+  headerAction: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgb(132, 204, 22)',
+    backgroundColor: MedicalColors.primary[100],
     justifyContent: 'center',
     alignItems: 'center',
   },
-});
-
-export default AssistedHelpFlowScreen; 
+  quickActions: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    gap: 8,
+  },
+  quickAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: MedicalColors.primary[100],
+    borderRadius: 16,
+    gap: 6,
+  },
+  quickActionText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: MedicalColors.primary[700],
+  },
+  messagesContainer: {
+    flex: 1,
+  },
+  messagesContent: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  messageContainer: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    alignItems: 'flex-end',
+  },
+  userMessageContainer: {
+    justifyContent: 'flex-end',
+    alignSelf: 'flex-end',
+  },
+  systemMessageContainer: {
+    justifyContent: 'center',
+    alignSelf: 'center',
+  },
+  agentAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: MedicalColors.primary[100],
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  avatarText: {
+    fontSize: 16,
+  },
+  messageBubble: {
+    maxWidth: '75%',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 18,
+    backgroundColor: MedicalColors.neutral[100],
+  },
+  userMessageBubble: {
+    backgroundColor: MedicalColors.primary[600],
+    alignSelf: 'flex-end',
+  },
+  systemMessageBubble: {
+    backgroundColor: MedicalColors.secondary[100],
+    alignSelf: 'center',
+  },
+  questionBubble: {
+    borderWidth: 1,
+    borderColor: MedicalColors.primary[200],
+    backgroundColor: MedicalColors.primary[50],
+  },
+  documentRequestBubble: {
+    borderWidth: 1,
+    borderColor: MedicalColors.accent[200],
+    backgroundColor: MedicalColors.accent[50],
+  },
+  messageText: {
+    fontSize: 16,
+    color: MedicalColors.neutral[900],
+    lineHeight: 22,
+  },
+  userMessageText: {
+    color: '#FFFFFF',
+  },
+  systemMessageText: {
+    color: MedicalColors.secondary[800],
+    fontWeight: '500',
+  },
+  messageTime: {
+    fontSize: 12,
+    color: MedicalColors.neutral[500],
+    marginTop: 4,
+  },
+  userMessageTime: {
+    color: 'rgba(255, 255, 255, 0.7)',
+  },
+  typingIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  typingBubble: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 18,
+    backgroundColor: MedicalColors.neutral[100],
+  },
+  typingText: {
+    fontSize: 14,
+    color: MedicalColors.neutral[600],
+    fontStyle: 'italic',
+  },
+  inputContainer: {
+    borderTopWidth: 1,
+    borderTopColor: MedicalColors.neutral[200],
+    backgroundColor: '#FFFFFF',
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    gap: 12,
+  },
+  messageInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: MedicalColors.neutral[200],
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: MedicalColors.neutral[900],
+    maxHeight: 100,
+  },
+  sendButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sendButtonActive: {
+    backgroundColor: MedicalColors.primary[600],
+  },
+  sendButtonInactive: {
+    backgroundColor: MedicalColors.neutral[200],
+  },
+  supportInfo: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    backgroundColor: MedicalColors.neutral[50],
+  },
+  supportStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: MedicalColors.neutral[700],
+  },
+  supportNote: {
+    fontSize: 11,
+    color: MedicalColors.neutral[500],
+  },
+}); 

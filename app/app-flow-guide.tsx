@@ -1,814 +1,872 @@
-import { IconSymbol } from '@/components/ui/IconSymbol';
-import * as Haptics from 'expo-haptics';
-import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
     SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
     TouchableOpacity,
-    View
+  Modal,
+  Dimensions,
 } from 'react-native';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import { IconSymbol, Card, Button } from '@/components/ui';
+import { MedicalColors } from '@/constants/Colors';
+import * as Haptics from 'expo-haptics';
+import Animated, { FadeIn, FadeInDown, FadeInUp } from 'react-native-reanimated';
 
-interface FlowStep {
-  id: string;
-  title: string;
-  description: string;
-  icon: string;
-  color: string;
-  backgroundColor: string;
-  route?: string;
-  action?: () => void;
-  substeps?: FlowStep[];
-}
-
-interface FlowCategory {
-  id: string;
-  title: string;
-  description: string;
-  icon: string;
-  color: string;
-  steps: FlowStep[];
-}
-
-export default function AppFlowGuideScreen() {
-  const router = useRouter();
-  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
-  const [expandedStep, setExpandedStep] = useState<string | null>(null);
-
-  const handleNavigation = (route?: string, action?: () => void) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (action) {
-      action();
-    } else if (route) {
-      router.push(route as any);
-    }
-  };
-
-  const toggleCategory = (categoryId: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setExpandedCategory(expandedCategory === categoryId ? null : categoryId);
-  };
-
-  const toggleStep = (stepId: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setExpandedStep(expandedStep === stepId ? null : stepId);
-  };
-
-  const appFlowCategories: FlowCategory[] = [
-    {
-      id: 'onboarding',
-      title: 'Getting Started',
-      description: 'New user onboarding and account setup',
-      icon: 'person.badge.plus',
-      color: 'rgb(132, 204, 22)',
-      steps: [
+// Complete app flow structure
+const APP_FLOW = [
         {
           id: 'welcome',
-          title: 'Welcome Screen',
-          description: 'Introduction to the Second Opinion app',
-          icon: 'hand.wave.fill',
-          color: 'rgb(132, 204, 22)',
-          backgroundColor: 'rgba(132, 204, 22, 0.1)',
-          route: '/welcome',
-        },
-        {
-          id: 'onboarding-flow',
-          title: 'Onboarding Flow (6 Steps)',
-          description: 'Learn about app features and benefits',
-          icon: 'list.number',
-          color: 'rgb(59, 130, 246)',
-          backgroundColor: 'rgba(59, 130, 246, 0.1)',
-          route: '/onboarding',
-          substeps: [
-            {
-              id: 'step1',
-              title: 'Step 1: Smart Scheduling',
-              description: 'Learn about appointment scheduling',
-              icon: 'calendar',
-              color: 'rgb(59, 130, 246)',
-              backgroundColor: 'rgba(59, 130, 246, 0.1)',
-              route: '/onboarding',
-            },
-            {
-              id: 'step2',
-              title: 'Step 2: Virtual Consultations',
-              description: 'Discover telemedicine features',
-              icon: 'video',
-              color: 'rgb(59, 130, 246)',
-              backgroundColor: 'rgba(59, 130, 246, 0.1)',
-              route: '/onboarding-step2',
-            },
-            {
-              id: 'step3',
-              title: 'Step 3: AI Health Assistant',
-              description: 'Meet your AI health companion',
-              icon: 'brain.head.profile',
-              color: 'rgb(59, 130, 246)',
-              backgroundColor: 'rgba(59, 130, 246, 0.1)',
-              route: '/onboarding-step3',
-            },
-            {
-              id: 'step4',
-              title: 'Step 4: Secure Medical Records',
-              description: 'Manage your health data securely',
-              icon: 'shield.checkmark.fill',
-              color: 'rgb(59, 130, 246)',
-              backgroundColor: 'rgba(59, 130, 246, 0.1)',
-              route: '/onboarding-step4',
-            },
-            {
-              id: 'step5',
-              title: 'Step 5: Appointment Booking',
-              description: 'Book appointments with specialists',
-              icon: 'calendar.badge.plus',
-              color: 'rgb(59, 130, 246)',
-              backgroundColor: 'rgba(59, 130, 246, 0.1)',
-              route: '/onboarding-step5',
-            },
-            {
-              id: 'step6',
-              title: 'Step 6: Health Assessment',
-              description: 'Complete your health profile',
-              icon: 'heart.text.square.fill',
-              color: 'rgb(59, 130, 246)',
-              backgroundColor: 'rgba(59, 130, 246, 0.1)',
-              route: '/onboarding-step6',
-            },
-          ],
-        },
-        {
-          id: 'auth',
-          title: 'Authentication',
-          description: 'Sign up or sign in to your account',
-          icon: 'lock.shield',
-          color: 'rgb(168, 85, 247)',
-          backgroundColor: 'rgba(168, 85, 247, 0.1)',
-          route: '/signin',
-        },
-        {
-          id: 'health-assessment',
-          title: 'Initial Health Assessment',
-          description: 'Set up your health goals and preferences',
-          icon: 'heart.text.square.fill',
-          color: 'rgb(239, 68, 68)',
-          backgroundColor: 'rgba(239, 68, 68, 0.1)',
-          route: '/comprehensive-health-assessment',
-        },
-      ],
-    },
-    {
-      id: 'consultation',
-      title: 'Second Opinion Consultation',
-      description: 'Get expert medical opinions through our platform',
+    title: 'Welcome & Onboarding',
+    icon: 'hand.wave',
+    color: MedicalColors.primary[600],
+    description: 'Trust-building introduction to the platform',
+    features: [
+      'Platform overview and mission',
+      'Medical team credentials',
+      'Security and privacy assurance',
+      'Evidence-based approach explanation'
+    ],
+    screens: ['welcome', 'onboarding'],
+    timeEstimate: '2-3 minutes',
+    trustFactor: 'High - Establishes credibility'
+  },
+  {
+    id: 'consultation_entry',
+    title: 'Consultation Entry',
       icon: 'stethoscope',
-      color: 'rgb(132, 204, 22)',
-      steps: [
-        {
-          id: 'consultation-choice',
-          title: 'Choose Consultation Path',
-          description: 'Select between Self-Service ($29) or Assisted Help ($79)',
-          icon: 'arrow.triangle.branch',
-          color: 'rgb(132, 204, 22)',
-          backgroundColor: 'rgba(132, 204, 22, 0.1)',
-          route: '/consultation-flow',
-        },
-        {
-          id: 'self-service',
-          title: 'Self-Service Path ($29)',
-          description: 'AI-guided consultation with optional human support',
-          icon: 'person.fill',
-          color: 'rgb(59, 130, 246)',
-          backgroundColor: 'rgba(59, 130, 246, 0.1)',
-          route: '/self-service-flow',
-          substeps: [
-            {
-              id: 'upload-docs',
-              title: 'Upload Medical Documents',
-              description: 'Share your medical records and test results',
-              icon: 'doc.badge.plus',
-              color: 'rgb(59, 130, 246)',
-              backgroundColor: 'rgba(59, 130, 246, 0.1)',
-            },
-            {
-              id: 'chief-complaint',
-              title: 'Chief Complaint',
-              description: 'Describe your main health concern',
-              icon: 'text.bubble',
-              color: 'rgb(59, 130, 246)',
-              backgroundColor: 'rgba(59, 130, 246, 0.1)',
-            },
-            {
-              id: 'symptom-analysis',
-              title: 'AI Symptom Analysis',
-              description: 'Interactive symptom checker and pain mapping',
-              icon: 'magnifyingglass.circle.fill',
-              color: 'rgb(59, 130, 246)',
-              backgroundColor: 'rgba(59, 130, 246, 0.1)',
-              route: '/symptom-checker',
-            },
-            {
-              id: 'current-treatment',
-              title: 'Current Treatment',
-              description: 'Share what treatments you are currently receiving',
-              icon: 'pills.fill',
-              color: 'rgb(59, 130, 246)',
-              backgroundColor: 'rgba(59, 130, 246, 0.1)',
-            },
-            {
-              id: 'questions',
-              title: 'Questions for Doctor',
-              description: 'Specify what you want to know from the expert',
-              icon: 'questionmark.circle',
-              color: 'rgb(59, 130, 246)',
-              backgroundColor: 'rgba(59, 130, 246, 0.1)',
-            },
-            {
-              id: 'ai-results',
-              title: 'AI Assessment Results',
-              description: 'Get preliminary AI analysis and recommendations',
-              icon: 'brain.head.profile',
-              color: 'rgb(59, 130, 246)',
-              backgroundColor: 'rgba(59, 130, 246, 0.1)',
-              route: '/ai-assessment-results',
-            },
-          ],
-        },
-        {
-          id: 'assisted-help',
-          title: 'Assisted Help Path ($79)',
-          description: 'Direct medical team support with personalized guidance',
-          icon: 'person.3.fill',
-          color: 'rgb(168, 85, 247)',
-          backgroundColor: 'rgba(168, 85, 247, 0.1)',
-          route: '/assisted-help-flow',
-          substeps: [
-            {
-              id: 'sop-patient-id',
-              title: 'Patient Identification',
-              description: 'Verify identity and establish secure communication',
-              icon: 'person.crop.circle.badge.checkmark',
-              color: 'rgb(168, 85, 247)',
-              backgroundColor: 'rgba(168, 85, 247, 0.1)',
-            },
-            {
-              id: 'sop-complaint',
-              title: 'Chief Complaint Assessment',
-              description: 'Expert-guided discussion of your main concern',
-              icon: 'text.bubble.fill',
-              color: 'rgb(168, 85, 247)',
-              backgroundColor: 'rgba(168, 85, 247, 0.1)',
-            },
-            {
-              id: 'sop-symptoms',
-              title: 'Comprehensive Symptom Analysis',
-              description: 'Detailed symptom mapping using medical protocols',
-              icon: 'list.bullet.clipboard.fill',
-              color: 'rgb(168, 85, 247)',
-              backgroundColor: 'rgba(168, 85, 247, 0.1)',
-            },
-            {
-              id: 'sop-history',
-              title: 'Medical History Collection',
-              description: 'Structured collection of relevant medical history',
-              icon: 'doc.text.fill',
-              color: 'rgb(168, 85, 247)',
-              backgroundColor: 'rgba(168, 85, 247, 0.1)',
-            },
-            {
-              id: 'sop-treatment',
-              title: 'Current Treatment Evaluation',
-              description: 'Review and assess current treatments',
-              icon: 'pills.fill',
-              color: 'rgb(168, 85, 247)',
-              backgroundColor: 'rgba(168, 85, 247, 0.1)',
-            },
-            {
-              id: 'sop-investigations',
-              title: 'Investigations Review',
-              description: 'Analyze existing tests and recommend new ones',
-              icon: 'doc.text.magnifyingglass',
-              color: 'rgb(168, 85, 247)',
-              backgroundColor: 'rgba(168, 85, 247, 0.1)',
-            },
-            {
-              id: 'sop-chat',
-              title: 'Live Chat Support',
-              description: 'Real-time communication with medical experts',
-              icon: 'bubble.left.and.bubble.right.fill',
-              color: 'rgb(168, 85, 247)',
-              backgroundColor: 'rgba(168, 85, 247, 0.1)',
-            },
-          ],
-        },
-      ],
-    },
-    {
-      id: 'health-tools',
-      title: 'Health Assessment Tools',
-      description: 'Comprehensive health evaluation and monitoring tools',
-      icon: 'heart.fill',
-      color: 'rgb(239, 68, 68)',
-      steps: [
-        {
-          id: 'symptom-checker-tool',
-          title: 'Symptom Checker',
-          description: 'AI-powered symptom analysis with visual pain mapping',
-          icon: 'magnifyingglass.circle.fill',
-          color: 'rgb(239, 68, 68)',
-          backgroundColor: 'rgba(239, 68, 68, 0.1)',
-          route: '/symptom-checker',
-          substeps: [
-            {
-              id: 'pain-mapping',
-              title: 'Visual Pain Mapping',
-              description: 'Interactive body diagram to mark pain locations',
-              icon: 'figure.walk',
-              color: 'rgb(239, 68, 68)',
-              backgroundColor: 'rgba(239, 68, 68, 0.1)',
-            },
-            {
-              id: 'pain-types',
-              title: 'Pain Type Classification',
-              description: 'Classify pain as sharp, dull, burning, throbbing, etc.',
-              icon: 'list.bullet',
-              color: 'rgb(239, 68, 68)',
-              backgroundColor: 'rgba(239, 68, 68, 0.1)',
-            },
-            {
-              id: 'symptom-details',
-              title: 'Detailed Symptom Analysis',
-              description: 'Duration, severity, triggers, and associated symptoms',
-              icon: 'text.alignleft',
-              color: 'rgb(239, 68, 68)',
-              backgroundColor: 'rgba(239, 68, 68, 0.1)',
-            },
-          ],
-        },
-        {
-          id: 'health-assessment-tool',
-          title: 'Comprehensive Health Assessment',
-          description: 'Complete health evaluation and goal setting',
-          icon: 'heart.text.square.fill',
-          color: 'rgb(16, 185, 129)',
-          backgroundColor: 'rgba(16, 185, 129, 0.1)',
-          route: '/comprehensive-health-assessment',
-        },
-      ],
-    },
-    {
-      id: 'medical-protocol',
-      title: 'Medical Protocol Flow',
-      description: 'Evidence-based medical decision making process',
-      icon: 'list.bullet.clipboard.fill',
-      color: 'rgb(16, 185, 129)',
-      steps: [
-        {
-          id: 'protocol-step1',
-          title: 'Review Existing Investigations',
-          description: 'Analyze current test results and medical reports',
-          icon: 'doc.text.magnifyingglass',
-          color: 'rgb(16, 185, 129)',
-          backgroundColor: 'rgba(16, 185, 129, 0.1)',
-          route: '/medical-protocol-flow',
-        },
-        {
-          id: 'protocol-step2',
-          title: 'Order New Investigations',
-          description: 'Recommend additional tests if needed',
-          icon: 'plus.circle.fill',
-          color: 'rgb(16, 185, 129)',
-          backgroundColor: 'rgba(16, 185, 129, 0.1)',
-          route: '/medical-protocol-flow',
-        },
-        {
-          id: 'protocol-step3',
-          title: 'Deliver Treatment Plan',
-          description: 'Provide comprehensive treatment recommendations',
-          icon: 'pills.fill',
-          color: 'rgb(16, 185, 129)',
-          backgroundColor: 'rgba(16, 185, 129, 0.1)',
-          route: '/medical-protocol-flow',
-        },
-      ],
-    },
-    {
-      id: 'education',
-      title: 'Medical Education',
-      description: 'Learn about medical conditions and treatments',
-      icon: 'book.closed.fill',
-      color: 'rgb(132, 204, 22)',
-      steps: [
-        {
-          id: 'condition-library',
-          title: 'Medical Condition Library',
-          description: 'Comprehensive database of medical conditions',
-          icon: 'book.closed.fill',
-          color: 'rgb(132, 204, 22)',
-          backgroundColor: 'rgba(132, 204, 22, 0.1)',
-          route: '/medical-education',
-        },
-        {
-          id: 'diagnosis-process',
-          title: 'Diagnosis Process Explanation',
-          description: 'Learn how medical diagnoses are made',
-          icon: 'list.bullet.clipboard.fill',
-          color: 'rgb(132, 204, 22)',
-          backgroundColor: 'rgba(132, 204, 22, 0.1)',
-          route: '/medical-education',
-        },
-        {
-          id: 'treatment-options',
-          title: 'Treatment Options',
-          description: 'Understand different treatment approaches',
-          icon: 'pills.fill',
-          color: 'rgb(132, 204, 22)',
-          backgroundColor: 'rgba(132, 204, 22, 0.1)',
-          route: '/medical-education',
-        },
-        {
-          id: 'evidence-sources',
-          title: 'Evidence-Based Sources',
-          description: 'Verify information with authoritative medical sources',
-          icon: 'checkmark.seal.fill',
-          color: 'rgb(132, 204, 22)',
-          backgroundColor: 'rgba(132, 204, 22, 0.1)',
-          route: '/medical-education',
-        },
-      ],
-    },
-    {
-      id: 'records',
-      title: 'Medical Records Management',
-      description: 'Secure storage and management of health information',
-      icon: 'doc.text.fill',
-      color: 'rgb(59, 130, 246)',
-      steps: [
-        {
-          id: 'upload-records',
-          title: 'Upload Medical Documents',
-          description: 'Securely upload and store medical records',
-          icon: 'doc.badge.plus',
-          color: 'rgb(59, 130, 246)',
-          backgroundColor: 'rgba(59, 130, 246, 0.1)',
-          route: '/medical-records',
-        },
-        {
-          id: 'view-records',
-          title: 'View Medical Records',
-          description: 'Access and organize your health documents',
-          icon: 'doc.text.fill',
-          color: 'rgb(59, 130, 246)',
-          backgroundColor: 'rgba(59, 130, 246, 0.1)',
-          route: '/medical-records',
-        },
-        {
-          id: 'share-records',
-          title: 'Share with Healthcare Providers',
-          description: 'Securely share records with doctors and specialists',
-          icon: 'square.and.arrow.up',
-          color: 'rgb(59, 130, 246)',
-          backgroundColor: 'rgba(59, 130, 246, 0.1)',
-          route: '/medical-records',
-        },
-        {
-          id: 'health-profile',
-          title: 'Health Profile Management',
-          description: 'Manage personal health information and preferences',
-          icon: 'person.crop.circle.fill',
-          color: 'rgb(59, 130, 246)',
-          backgroundColor: 'rgba(59, 130, 246, 0.1)',
-          route: '/profile',
-        },
-      ],
-    },
-  ];
+    color: MedicalColors.secondary[600],
+    description: 'ATM-like instant access to medical consultation',
+    features: [
+      '$49 transparent pricing',
+      'Two-path selection (Self-Service vs Assisted)',
+      'Expected timeline disclosure',
+      'Quality assurance guarantees'
+    ],
+    screens: ['consultation-flow'],
+    timeEstimate: '1-2 minutes',
+    trustFactor: 'High - Transparent pricing and options'
+  },
+  {
+    id: 'data_collection',
+    title: 'Comprehensive Data Collection',
+    icon: 'doc.text',
+    color: MedicalColors.accent[600],
+    description: 'Systematic gathering of medical information',
+    features: [
+      'Structured medical history',
+      'Symptom checker with AI analysis',
+      'Visual pain mapping',
+      'Document upload capability',
+      'Review of systems (ROS)'
+    ],
+    screens: ['self-service-flow', 'comprehensive-health-assessment', 'symptom-checker'],
+    timeEstimate: '15-30 minutes',
+    trustFactor: 'Medium - Thorough but time-consuming'
+  },
+  {
+    id: 'assisted_support',
+    title: 'Assisted Help Path',
+    icon: 'person.2.fill',
+    color: MedicalColors.success[600],
+    description: 'SOP-guided support team assistance',
+    features: [
+      'Real-time chat with medical support',
+      'Guided data collection',
+      'Document assistance',
+      'Clarification of symptoms',
+      'Professional guidance'
+    ],
+    screens: ['assisted-help-flow'],
+    timeEstimate: '20-45 minutes',
+    trustFactor: 'Very High - Human interaction'
+  },
+  {
+    id: 'medical_protocol',
+    title: 'Medical Protocol Processing',
+    icon: 'list.bullet.clipboard',
+    color: MedicalColors.warning[600],
+    description: 'Standardized textbook protocol execution',
+    features: [
+      'Evidence-based review process',
+      'Standardized medical protocols',
+      'Cross-verification with guidelines',
+      'Peer review integration',
+      'Quality assurance checks'
+    ],
+    screens: ['medical-protocol-flow'],
+    timeEstimate: '24-48 hours',
+    trustFactor: 'Very High - Professional standards'
+  },
+  {
+    id: 'diagnosis_delivery',
+    title: 'Diagnosis & Treatment Explanation',
+    icon: 'brain.head.profile',
+    color: MedicalColors.info[600],
+    description: 'Clear, comprehensive medical explanation',
+    features: [
+      'Diagnosis explanation in lay terms',
+      'Treatment options with rationale',
+      'Visual aids and diagrams',
+      'Expected outcomes discussion',
+      'Follow-up recommendations'
+    ],
+    screens: ['ai-assessment-results', 'medical-education'],
+    timeEstimate: '10-15 minutes',
+    trustFactor: 'Very High - Clear communication'
+  },
+  {
+    id: 'education_support',
+    title: 'Patient Education & Support',
+    icon: 'book.fill',
+    color: MedicalColors.tertiary[600],
+    description: 'Ongoing education and support resources',
+    features: [
+      'Condition-specific education',
+      'Treatment explanations',
+      'Lifestyle recommendations',
+      'Warning signs to watch for',
+      'Follow-up care guidance'
+    ],
+    screens: ['medical-education'],
+    timeEstimate: 'Ongoing',
+    trustFactor: 'High - Empowers patients'
+  }
+];
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        {/* Header */}
-        <Animated.View style={styles.header} entering={FadeIn}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <IconSymbol name="chevron.left" size={24} color="rgb(49, 58, 52)" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>App Flow Guide</Text>
-          <View style={styles.placeholder} />
-        </Animated.View>
+// Platform statistics and trust indicators
+const PLATFORM_STATS = {
+  totalConsultations: '25,000+',
+  averageResponseTime: '36 hours',
+  patientSatisfaction: '4.8/5',
+  doctorCredentials: 'Board-certified',
+  evidenceLevel: 'Level A',
+  protocolCompliance: '99.2%'
+};
 
-        <Animated.View style={styles.intro} entering={FadeIn.delay(200)}>
-          <Text style={styles.introTitle}>Complete User Journey</Text>
-          <Text style={styles.introDescription}>
-            Explore the complete flow of the Second Opinion app. Each section shows the step-by-step process and allows you to navigate directly to any feature.
+// Trust building elements
+const TRUST_ELEMENTS = [
+  {
+    id: 'transparency',
+    title: 'Complete Transparency',
+    description: 'See exactly how we reach our medical conclusions',
+    icon: 'eye',
+    color: MedicalColors.success[600]
+  },
+  {
+    id: 'evidence_based',
+    title: 'Evidence-Based Medicine',
+    description: 'All recommendations follow established medical guidelines',
+    icon: 'doc.text.magnifyingglass',
+    color: MedicalColors.info[600]
+  },
+  {
+    id: 'standardized',
+    title: 'Standardized Protocols',
+    description: 'Same high-quality process for every patient',
+    icon: 'checkmark.seal',
+    color: MedicalColors.primary[600]
+  },
+  {
+    id: 'peer_reviewed',
+    title: 'Peer Review Process',
+    description: 'Multiple physicians review complex cases',
+    icon: 'person.3.fill',
+    color: MedicalColors.secondary[600]
+  }
+];
+
+const { width: screenWidth } = Dimensions.get('window');
+
+export default function AppFlowGuide() {
+  const router = useRouter();
+  const [selectedFlow, setSelectedFlow] = useState<string | null>(null);
+  const [showFlowModal, setShowFlowModal] = useState(false);
+  const [currentFlowIndex, setCurrentFlowIndex] = useState(0);
+
+  const handleFlowPress = (flow: any) => {
+    setSelectedFlow(flow.id);
+    setShowFlowModal(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const navigateToScreen = (screen: string) => {
+    setShowFlowModal(false);
+    router.push(`/${screen}`);
+  };
+
+  const renderHeader = () => (
+    <View style={styles.headerSection}>
+      <View style={styles.headerContent}>
+        <Text style={styles.headerTitle}>Second Opinion Platform</Text>
+        <Text style={styles.headerSubtitle}>
+          ATM-like instant access to medical consultations
+        </Text>
+      </View>
+      
+      <View style={styles.platformStats}>
+        <View style={styles.statItem}>
+          <Text style={styles.statValue}>{PLATFORM_STATS.totalConsultations}</Text>
+          <Text style={styles.statLabel}>Consultations</Text>
+        </View>
+        
+        <View style={styles.statItem}>
+          <Text style={styles.statValue}>{PLATFORM_STATS.averageResponseTime}</Text>
+          <Text style={styles.statLabel}>Response Time</Text>
+        </View>
+        
+        <View style={styles.statItem}>
+          <Text style={styles.statValue}>{PLATFORM_STATS.patientSatisfaction}</Text>
+          <Text style={styles.statLabel}>Satisfaction</Text>
+        </View>
+      </View>
+    </View>
+  );
+
+  const renderFlowStep = (flow: any, index: number) => (
+    <Animated.View 
+      key={flow.id}
+      entering={FadeInDown.delay(index * 150)}
+      style={styles.flowStep}
+    >
+      <TouchableOpacity
+        style={styles.flowCard}
+        onPress={() => handleFlowPress(flow)}
+      >
+        <View style={styles.flowHeader}>
+          <View style={[styles.flowIcon, { backgroundColor: `${flow.color}20` }]}>
+            <IconSymbol name={flow.icon} size={32} color={flow.color} />
+          </View>
+          
+          <View style={styles.flowInfo}>
+            <Text style={styles.flowTitle}>{flow.title}</Text>
+            <Text style={styles.flowDescription}>{flow.description}</Text>
+          </View>
+          
+          <View style={styles.flowMeta}>
+            <Text style={styles.flowTime}>{flow.timeEstimate}</Text>
+            <Text style={styles.flowTrust}>{flow.trustFactor}</Text>
+          </View>
+        </View>
+        
+        <View style={styles.flowFeatures}>
+          {flow.features.slice(0, 3).map((feature: string, idx: number) => (
+            <View key={idx} style={styles.featureItem}>
+              <IconSymbol name="checkmark.circle" size={16} color={flow.color} />
+              <Text style={styles.featureText}>{feature}</Text>
+            </View>
+          ))}
+          {flow.features.length > 3 && (
+            <Text style={styles.moreFeatures}>+{flow.features.length - 3} more features</Text>
+          )}
+        </View>
+        
+        <View style={styles.flowFooter}>
+          <Text style={styles.screenCount}>
+            {flow.screens.length} screen{flow.screens.length > 1 ? 's' : ''}
           </Text>
+          <IconSymbol name="chevron.right" size={20} color={MedicalColors.neutral[400]} />
+        </View>
+      </TouchableOpacity>
         </Animated.View>
+  );
 
-        {/* Flow Categories */}
-        {appFlowCategories.map((category, categoryIndex) => (
+  const renderTrustSection = () => (
+    <Card variant="default" padding="large" style={styles.trustCard}>
+      <Text style={styles.trustTitle}>Why Patients Trust Our Platform</Text>
+      <Text style={styles.trustDescription}>
+        Built on the principles of transparency, evidence-based medicine, and patient empowerment
+      </Text>
+      
+      <View style={styles.trustElements}>
+        {TRUST_ELEMENTS.map((element, index) => (
           <Animated.View
-            key={category.id}
-            style={styles.categorySection}
-            entering={FadeInDown.delay(categoryIndex * 100)}
+            key={element.id}
+            entering={FadeInUp.delay(index * 100)}
+            style={styles.trustElement}
           >
-            {/* Category Header */}
-            <TouchableOpacity
-              style={styles.categoryHeader}
-              onPress={() => toggleCategory(category.id)}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.categoryIcon, { backgroundColor: `${category.color}20` }]}>
-                <IconSymbol name={category.icon} size={24} color={category.color} />
-              </View>
-              <View style={styles.categoryInfo}>
-                <Text style={styles.categoryTitle}>{category.title}</Text>
-                <Text style={styles.categoryDescription}>{category.description}</Text>
-              </View>
-              <IconSymbol 
-                name={expandedCategory === category.id ? "chevron.up" : "chevron.down"} 
-                size={20} 
-                color="rgb(100, 112, 103)" 
-              />
-            </TouchableOpacity>
-
-            {/* Category Steps */}
-            {expandedCategory === category.id && (
-              <Animated.View style={styles.categorySteps} entering={FadeInDown.delay(100)}>
-                {category.steps.map((step, stepIndex) => (
-                  <View key={step.id} style={styles.stepContainer}>
-                    <TouchableOpacity
-                      style={[styles.stepItem, { backgroundColor: step.backgroundColor }]}
-                      onPress={() => step.substeps ? toggleStep(step.id) : handleNavigation(step.route, step.action)}
-                      activeOpacity={0.8}
-                    >
-                      <View style={styles.stepNumber}>
-                        <Text style={[styles.stepNumberText, { color: step.color }]}>
-                          {stepIndex + 1}
-                        </Text>
-                      </View>
-                      <View style={styles.stepIcon}>
-                        <IconSymbol name={step.icon} size={20} color={step.color} />
-                      </View>
-                      <View style={styles.stepInfo}>
-                        <Text style={[styles.stepTitle, { color: step.color }]}>
-                          {step.title}
-                        </Text>
-                        <Text style={styles.stepDescription}>{step.description}</Text>
-                      </View>
-                      {step.substeps && (
-                        <IconSymbol 
-                          name={expandedStep === step.id ? "chevron.up" : "chevron.down"} 
-                          size={16} 
-                          color="rgb(100, 112, 103)" 
-                        />
-                      )}
-                      {step.route && !step.substeps && (
-                        <IconSymbol name="chevron.right" size={16} color="rgb(100, 112, 103)" />
-                      )}
-                    </TouchableOpacity>
-
-                    {/* Substeps */}
-                    {step.substeps && expandedStep === step.id && (
-                      <Animated.View style={styles.substeps} entering={FadeInDown.delay(100)}>
-                        {step.substeps.map((substep, substepIndex) => (
-                          <TouchableOpacity
-                            key={substep.id}
-                            style={[styles.substepItem, { backgroundColor: substep.backgroundColor }]}
-                            onPress={() => handleNavigation(substep.route, substep.action)}
-                            activeOpacity={0.8}
-                          >
-                            <View style={styles.substepNumber}>
-                              <Text style={[styles.substepNumberText, { color: substep.color }]}>
-                                {stepIndex + 1}.{substepIndex + 1}
-                              </Text>
-                            </View>
-                            <View style={styles.substepIcon}>
-                              <IconSymbol name={substep.icon} size={16} color={substep.color} />
-                            </View>
-                            <View style={styles.substepInfo}>
-                              <Text style={[styles.substepTitle, { color: substep.color }]}>
-                                {substep.title}
-                              </Text>
-                              <Text style={styles.substepDescription}>{substep.description}</Text>
-                            </View>
-                            {substep.route && (
-                              <IconSymbol name="chevron.right" size={14} color="rgb(100, 112, 103)" />
-                            )}
-                          </TouchableOpacity>
-                        ))}
-                      </Animated.View>
-                    )}
-                  </View>
-                ))}
-              </Animated.View>
-            )}
+            <View style={[styles.trustElementIcon, { backgroundColor: `${element.color}20` }]}>
+              <IconSymbol name={element.icon} size={24} color={element.color} />
+            </View>
+            
+            <View style={styles.trustElementContent}>
+              <Text style={styles.trustElementTitle}>{element.title}</Text>
+              <Text style={styles.trustElementDescription}>{element.description}</Text>
+            </View>
           </Animated.View>
         ))}
+      </View>
+    </Card>
+  );
 
-        {/* Footer */}
-        <Animated.View style={styles.footer} entering={FadeInDown.delay(800)}>
-          <Text style={styles.footerText}>
-            This guide shows the complete user journey through the Second Opinion app. Each step is designed to provide maximum value while maintaining medical accuracy and user trust.
+  const renderQuickActions = () => (
+    <View style={styles.quickActionsContainer}>
+      <Text style={styles.quickActionsTitle}>Quick Actions</Text>
+      
+      <View style={styles.quickActionButtons}>
+        <Button
+          title="Start Consultation"
+          onPress={() => router.push('/consultation-flow')}
+          variant="primary"
+          size="large"
+          icon="stethoscope"
+          iconPosition="left"
+          style={styles.quickActionButton}
+        />
+        
+        <Button
+          title="View Sample Results"
+          onPress={() => router.push('/ai-assessment-results')}
+          variant="outline"
+          size="large"
+          icon="brain.head.profile"
+          iconPosition="left"
+          style={styles.quickActionButton}
+        />
+      </View>
+      
+      <View style={styles.quickActionButtons}>
+        <Button
+          title="Medical Education"
+          onPress={() => router.push('/medical-education')}
+          variant="outline"
+          size="medium"
+          icon="book.fill"
+          iconPosition="left"
+          style={styles.quickActionButton}
+        />
+        
+        <Button
+          title="Protocol Demo"
+          onPress={() => router.push('/medical-protocol-flow')}
+          variant="outline"
+          size="medium"
+          icon="list.bullet.clipboard"
+          iconPosition="left"
+          style={styles.quickActionButton}
+        />
+      </View>
+    </View>
+  );
+
+  const renderFlowModal = () => {
+    const flow = APP_FLOW.find(f => f.id === selectedFlow);
+    if (!flow) return null;
+
+    return (
+      <Modal
+        visible={showFlowModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowFlowModal(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>{flow.title}</Text>
+            <TouchableOpacity
+              onPress={() => setShowFlowModal(false)}
+              style={styles.modalCloseButton}
+            >
+              <IconSymbol name="xmark" size={24} color={MedicalColors.neutral[600]} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.modalContent}>
+            <View style={styles.modalSection}>
+              <Text style={styles.modalSectionTitle}>Overview</Text>
+              <Text style={styles.modalSectionText}>{flow.description}</Text>
+            </View>
+
+            <View style={styles.modalSection}>
+              <Text style={styles.modalSectionTitle}>Key Features</Text>
+              {flow.features.map((feature, index) => (
+                <View key={index} style={styles.modalFeatureItem}>
+                  <IconSymbol name="checkmark.circle" size={16} color={flow.color} />
+                  <Text style={styles.modalFeatureText}>{feature}</Text>
+                </View>
+              ))}
+            </View>
+
+            <View style={styles.modalSection}>
+              <Text style={styles.modalSectionTitle}>Screens Included</Text>
+              {flow.screens.map((screen, index) => (
+                    <TouchableOpacity
+                  key={index}
+                  style={styles.screenItem}
+                  onPress={() => navigateToScreen(screen)}
+                >
+                  <IconSymbol name="rectangle" size={16} color={MedicalColors.primary[600]} />
+                  <Text style={styles.screenText}>{screen.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}</Text>
+                  <IconSymbol name="chevron.right" size={16} color={MedicalColors.neutral[400]} />
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={styles.modalSection}>
+              <Text style={styles.modalSectionTitle}>Time & Trust</Text>
+              <View style={styles.timetrustContainer}>
+                <View style={styles.timetrustItem}>
+                  <IconSymbol name="clock" size={20} color={MedicalColors.warning[600]} />
+                  <Text style={styles.timetrustText}>Time: {flow.timeEstimate}</Text>
+                </View>
+                <View style={styles.timetrustItem}>
+                  <IconSymbol name="shield.checkered" size={20} color={MedicalColors.success[600]} />
+                  <Text style={styles.timetrustText}>Trust: {flow.trustFactor}</Text>
+                </View>
+              </View>
+                      </View>
+          </ScrollView>
+
+          <View style={styles.modalFooter}>
+            <Button
+              title="Experience This Flow"
+              onPress={() => navigateToScreen(flow.screens[0])}
+              variant="primary"
+              size="large"
+              icon="arrow.right.circle"
+              iconPosition="right"
+              fullWidth
+            />
+                      </View>
+                      </View>
+      </Modal>
+    );
+  };
+
+  return (
+    <View style={styles.container}>
+      <LinearGradient
+        colors={[MedicalColors.primary[50], MedicalColors.secondary[50], '#FFFFFF']}
+        locations={[0, 0.3, 1]}
+        style={StyleSheet.absoluteFillObject}
+      />
+      
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+                          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backButton}
+          >
+            <IconSymbol name="chevron.left" size={24} color={MedicalColors.primary[600]} />
+                          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Platform Overview</Text>
+          <View style={styles.headerSpacer} />
+                  </View>
+
+        <ScrollView 
+          style={styles.content}
+          contentContainerStyle={styles.contentContainer}
+          showsVerticalScrollIndicator={false}
+        >
+          <Animated.View entering={FadeInUp.duration(500)}>
+            {renderHeader()}
+          </Animated.View>
+
+          <View style={styles.flowContainer}>
+            <Text style={styles.flowContainerTitle}>Complete Patient Journey</Text>
+            <Text style={styles.flowContainerDescription}>
+              From initial consultation to ongoing education - see how our platform works
+            </Text>
+            
+            {APP_FLOW.map((flow, index) => renderFlowStep(flow, index))}
+          </View>
+
+          {renderTrustSection()}
+          {renderQuickActions()}
+
+          <View style={styles.visionSection}>
+            <Text style={styles.visionTitle}>Our Vision</Text>
+            <Text style={styles.visionText}>
+              To provide ATM-like instant access to medical consultations, where patients can get 
+              comprehensive second opinions through standardized protocols, transparent explanations, 
+              and evidence-based care - building trust through knowledge and involvement.
           </Text>
-        </Animated.View>
+            
+            <View style={styles.visionPoints}>
+              <View style={styles.visionPoint}>
+                <IconSymbol name="bolt.fill" size={20} color={MedicalColors.warning[600]} />
+                <Text style={styles.visionPointText}>Instant access like an ATM</Text>
+              </View>
+              
+              <View style={styles.visionPoint}>
+                <IconSymbol name="person.2.fill" size={20} color={MedicalColors.success[600]} />
+                <Text style={styles.visionPointText}>Two-path approach (self-service vs assisted)</Text>
+              </View>
+              
+              <View style={styles.visionPoint}>
+                <IconSymbol name="doc.text.magnifyingglass" size={20} color={MedicalColors.info[600]} />
+                <Text style={styles.visionPointText}>Standardized textbook protocols</Text>
+              </View>
+              
+              <View style={styles.visionPoint}>
+                <IconSymbol name="heart.fill" size={20} color={MedicalColors.error[600]} />
+                <Text style={styles.visionPointText}>Trust through transparency</Text>
+              </View>
+            </View>
+          </View>
       </ScrollView>
     </SafeAreaView>
+
+      {renderFlowModal()}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'rgb(245, 246, 245)',
   },
-  scrollView: {
+  safeArea: {
     flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 32,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    paddingBottom: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(100, 112, 103, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    padding: 8,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: 'rgb(49, 58, 52)',
+    fontSize: 18,
+    fontWeight: '600',
+    color: MedicalColors.neutral[900],
+    flex: 1,
+    textAlign: 'center',
   },
-  placeholder: {
+  headerSpacer: {
     width: 40,
   },
-  intro: {
-    paddingHorizontal: 24,
-    paddingBottom: 24,
+  content: {
+    flex: 1,
   },
-  introTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: 'rgb(49, 58, 52)',
+  contentContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  headerSection: {
+    marginBottom: 32,
+  },
+  headerContent: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  headerTitle: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: MedicalColors.neutral[900],
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  headerSubtitle: {
+    fontSize: 18,
+    color: MedicalColors.neutral[600],
+    textAlign: 'center',
+    lineHeight: 26,
+  },
+  platformStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingVertical: 20,
+    backgroundColor: MedicalColors.neutral[50],
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: MedicalColors.neutral[200],
+  },
+  statItem: {
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: MedicalColors.primary[600],
+  },
+  statLabel: {
+    fontSize: 12,
+    color: MedicalColors.neutral[600],
+    marginTop: 4,
+  },
+  flowContainer: {
+    marginBottom: 32,
+  },
+  flowContainerTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: MedicalColors.neutral[900],
     marginBottom: 8,
   },
-  introDescription: {
+  flowContainerDescription: {
     fontSize: 16,
-    color: 'rgb(100, 112, 103)',
+    color: MedicalColors.neutral[600],
+    marginBottom: 24,
     lineHeight: 24,
   },
-  categorySection: {
-    marginBottom: 24,
-    paddingHorizontal: 24,
+  flowStep: {
+    marginBottom: 16,
   },
-  categoryHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: 'white',
+  flowCard: {
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
+    padding: 20,
     borderWidth: 1,
-    borderColor: 'rgba(100, 112, 103, 0.1)',
+    borderColor: MedicalColors.neutral[200],
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  categoryIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
+  flowHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+    gap: 16,
+  },
+  flowIcon: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
   },
-  categoryInfo: {
+  flowInfo: {
     flex: 1,
   },
-  categoryTitle: {
+  flowTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: 'rgb(49, 58, 52)',
+    fontWeight: '600',
+    color: MedicalColors.neutral[900],
     marginBottom: 4,
   },
-  categoryDescription: {
+  flowDescription: {
     fontSize: 14,
-    color: 'rgb(100, 112, 103)',
+    color: MedicalColors.neutral[600],
     lineHeight: 20,
   },
-  categorySteps: {
-    marginTop: 16,
-    gap: 12,
+  flowMeta: {
+    alignItems: 'flex-end',
   },
-  stepContainer: {
-    marginLeft: 16,
+  flowTime: {
+    fontSize: 12,
+    color: MedicalColors.warning[600],
+    fontWeight: '500',
   },
-  stepItem: {
+  flowTrust: {
+    fontSize: 12,
+    color: MedicalColors.success[600],
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  flowFeatures: {
+    gap: 8,
+    marginBottom: 16,
+  },
+  featureItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(100, 112, 103, 0.1)',
-  },
-  stepNumber: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  stepNumberText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  stepIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  stepInfo: {
-    flex: 1,
-  },
-  stepTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  stepDescription: {
-    fontSize: 14,
-    color: 'rgb(100, 112, 103)',
-    lineHeight: 20,
-  },
-  substeps: {
-    marginTop: 12,
-    marginLeft: 16,
     gap: 8,
   },
-  substepItem: {
+  featureText: {
+    fontSize: 14,
+    color: MedicalColors.neutral[700],
+  },
+  moreFeatures: {
+    fontSize: 12,
+    color: MedicalColors.neutral[500],
+    fontStyle: 'italic',
+    marginLeft: 24,
+  },
+  flowFooter: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(100, 112, 103, 0.1)',
+    justifyContent: 'space-between',
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: MedicalColors.neutral[200],
   },
-  substepNumber: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 8,
-  },
-  substepNumberText: {
+  screenCount: {
     fontSize: 12,
-    fontWeight: 'bold',
+    color: MedicalColors.neutral[500],
+    fontWeight: '500',
   },
-  substepIcon: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+  trustCard: {
+    marginBottom: 32,
+  },
+  trustTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: MedicalColors.neutral[900],
+    marginBottom: 8,
+  },
+  trustDescription: {
+    fontSize: 16,
+    color: MedicalColors.neutral[600],
+    lineHeight: 24,
+    marginBottom: 24,
+  },
+  trustElements: {
+    gap: 16,
+  },
+  trustElement: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 16,
+  },
+  trustElementIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 8,
   },
-  substepInfo: {
+  trustElementContent: {
     flex: 1,
   },
-  substepTitle: {
-    fontSize: 14,
+  trustElementTitle: {
+    fontSize: 16,
     fontWeight: '600',
-    marginBottom: 2,
+    color: MedicalColors.neutral[900],
+    marginBottom: 4,
   },
-  substepDescription: {
-    fontSize: 12,
-    color: 'rgb(100, 112, 103)',
-    lineHeight: 16,
-  },
-  footer: {
-    paddingHorizontal: 24,
-    paddingTop: 16,
-    alignItems: 'center',
-  },
-  footerText: {
+  trustElementDescription: {
     fontSize: 14,
-    color: 'rgb(100, 112, 103)',
-    textAlign: 'center',
+    color: MedicalColors.neutral[600],
     lineHeight: 20,
+  },
+  quickActionsContainer: {
+    marginBottom: 32,
+  },
+  quickActionsTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: MedicalColors.neutral[900],
+    marginBottom: 20,
+  },
+  quickActionButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+  },
+  quickActionButton: {
+    flex: 1,
+  },
+  visionSection: {
+    padding: 20,
+    backgroundColor: MedicalColors.primary[50],
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: MedicalColors.primary[200],
+  },
+  visionTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: MedicalColors.primary[900],
+    marginBottom: 12,
+  },
+  visionText: {
+    fontSize: 16,
+    color: MedicalColors.primary[700],
+    lineHeight: 24,
+    marginBottom: 20,
+  },
+  visionPoints: {
+    gap: 12,
+  },
+  visionPoint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  visionPointText: {
+    fontSize: 14,
+    color: MedicalColors.primary[800],
+    fontWeight: '500',
+  },
+  // Modal styles
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: MedicalColors.neutral[200],
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: MedicalColors.neutral[900],
+  },
+  modalCloseButton: {
+    padding: 8,
+  },
+  modalContent: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  modalSection: {
+    marginBottom: 24,
+  },
+  modalSectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: MedicalColors.neutral[900],
+    marginBottom: 12,
+  },
+  modalSectionText: {
+    fontSize: 14,
+    color: MedicalColors.neutral[600],
+    lineHeight: 20,
+  },
+  modalFeatureItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  modalFeatureText: {
+    fontSize: 14,
+    color: MedicalColors.neutral[700],
+  },
+  screenItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: MedicalColors.neutral[50],
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  screenText: {
+    fontSize: 14,
+    color: MedicalColors.neutral[700],
+    flex: 1,
+  },
+  timetrustContainer: {
+    gap: 12,
+  },
+  timetrustItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  timetrustText: {
+    fontSize: 14,
+    color: MedicalColors.neutral[700],
+  },
+  modalFooter: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: MedicalColors.neutral[200],
   },
 }); 

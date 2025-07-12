@@ -1,20 +1,23 @@
-import { IconSymbol } from '@/components/ui/IconSymbol';
-import * as DocumentPicker from 'expo-document-picker';
-import * as Haptics from 'expo-haptics';
-import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    Alert,
-    Modal,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  SafeAreaView,
+  TouchableOpacity,
+  Alert,
+  TextInput,
+  Switch,
 } from 'react-native';
-import Animated, { FadeIn, SlideInRight } from 'react-native-reanimated';
+import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import { IconSymbol, Card, Button, Input } from '@/components/ui';
+import { MedicalColors, MedicalGradients } from '@/constants/Colors';
+import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
+import * as Haptics from 'expo-haptics';
+import Animated, { FadeIn, FadeInDown, FadeInUp } from 'react-native-reanimated';
 
 interface UploadedDocument {
   id: string;
@@ -24,432 +27,523 @@ interface UploadedDocument {
   uri: string;
 }
 
-interface AssessmentData {
-  documents: UploadedDocument[];
-  chiefComplaint: string;
-  symptoms: string[];
-  currentTreatment: string;
-  questionsForDoctor: string[];
-  urgency: 'low' | 'medium' | 'high' | 'urgent';
+interface PainLocation {
+  id: string;
+  name: string;
+  intensity: number;
+  selected: boolean;
 }
 
-const SelfServiceFlowScreen = () => {
+export default function SelfServiceFlow() {
   const router = useRouter();
-  const [currentStep, setCurrentStep] = useState(0);
-  const [assessmentData, setAssessmentData] = useState<AssessmentData>({
-    documents: [],
-    chiefComplaint: '',
-    symptoms: [],
-    currentTreatment: '',
-    questionsForDoctor: [],
-    urgency: 'medium'
-  });
-  const [supportModalVisible, setSupportModalVisible] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [currentStep, setCurrentStep] = useState(1);
+  const [documents, setDocuments] = useState<UploadedDocument[]>([]);
+  const [chiefComplaint, setChiefComplaint] = useState('');
+  const [symptoms, setSymptoms] = useState('');
+  const [painLevel, setPainLevel] = useState(0);
+  const [painLocations, setPainLocations] = useState<PainLocation[]>([
+    { id: 'head', name: 'Head', intensity: 0, selected: false },
+    { id: 'neck', name: 'Neck', intensity: 0, selected: false },
+    { id: 'chest', name: 'Chest', intensity: 0, selected: false },
+    { id: 'abdomen', name: 'Abdomen', intensity: 0, selected: false },
+    { id: 'back', name: 'Back', intensity: 0, selected: false },
+    { id: 'arms', name: 'Arms', intensity: 0, selected: false },
+    { id: 'legs', name: 'Legs', intensity: 0, selected: false },
+  ]);
+  const [hasAllergies, setHasAllergies] = useState(false);
+  const [allergies, setAllergies] = useState('');
+  const [currentMedications, setCurrentMedications] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const steps = [
-    { id: 'upload', title: 'Upload Information', subtitle: 'Share your medical documents' },
-    { id: 'complaint', title: 'Chief Complaint', subtitle: 'What brings you here today?' },
-    { id: 'symptoms', title: 'Symptom Analysis', subtitle: 'AI-powered symptom checker' },
-    { id: 'treatment', title: 'Current Treatment', subtitle: 'What are you currently doing?' },
-    { id: 'questions', title: 'Your Questions', subtitle: 'What would you like to know?' },
-    { id: 'review', title: 'Review & Submit', subtitle: 'Confirm your information' }
-  ];
+  const totalSteps = 5;
 
   const handleDocumentUpload = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: ['application/pdf', 'image/*'],
         copyToCacheDirectory: true,
-        multiple: true
       });
 
-      if (!result.canceled && result.assets) {
-        const newDocuments = result.assets.map((asset, index) => ({
-          id: `${Date.now()}_${index}`,
-          name: asset.name || 'Unknown',
-          type: asset.mimeType || 'unknown',
-          size: asset.size || 0,
-          uri: asset.uri
-        }));
-
-        setAssessmentData(prev => ({
-          ...prev,
-          documents: [...prev.documents, ...newDocuments]
-        }));
-
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        Alert.alert('Success', `${newDocuments.length} document(s) uploaded successfully`);
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const file = result.assets[0];
+        const newDocument: UploadedDocument = {
+          id: Date.now().toString(),
+          name: file.name,
+          type: file.mimeType || 'unknown',
+          size: file.size || 0,
+          uri: file.uri,
+        };
+        setDocuments([...documents, newDocument]);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to upload document. Please try again.');
+      Alert.alert('Error', 'Failed to upload document');
     }
   };
 
-  const removeDocument = (documentId: string) => {
-    setAssessmentData(prev => ({
-      ...prev,
-      documents: prev.documents.filter(doc => doc.id !== documentId)
-    }));
+  const handleImageUpload = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 1,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const image = result.assets[0];
+        const newDocument: UploadedDocument = {
+          id: Date.now().toString(),
+          name: `Medical_Image_${Date.now()}.jpg`,
+          type: 'image/jpeg',
+          size: 0,
+          uri: image.uri,
+        };
+        setDocuments([...documents, newDocument]);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to upload image');
+    }
   };
 
-  const requestSupport = () => {
-    setSupportModalVisible(true);
+  const removeDocument = (id: string) => {
+    setDocuments(documents.filter(doc => doc.id !== id));
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  const handleSupportRequest = () => {
-    setSupportModalVisible(false);
-    Alert.alert(
-      'Support Requested',
-      'A medical support specialist will contact you within 15 minutes to assist with your assessment.',
-      [
-        { text: 'Continue Self-Service', style: 'cancel' },
-        { text: 'Switch to Assisted Help', onPress: () => router.push('/assisted-help-flow') }
-      ]
+  const togglePainLocation = (id: string) => {
+    setPainLocations(prev => 
+      prev.map(location => 
+        location.id === id 
+          ? { ...location, selected: !location.selected }
+          : location
+      )
     );
   };
 
-  const handleNext = () => {
-    if (currentStep < steps.length - 1) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  const updatePainIntensity = (id: string, intensity: number) => {
+    setPainLocations(prev => 
+      prev.map(location => 
+        location.id === id 
+          ? { ...location, intensity }
+          : location
+      )
+    );
+  };
+
+  const nextStep = () => {
+    if (currentStep < totalSteps) {
       setCurrentStep(currentStep + 1);
-    } else {
-      handleSubmit();
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
   };
 
-  const handleBack = () => {
-    if (currentStep > 0) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  const prevStep = () => {
+    if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
-    } else {
-      router.back();
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
   };
 
   const handleSubmit = async () => {
-    setIsProcessing(true);
+    setIsSubmitting(true);
     
-    // Simulate AI processing
+    // Simulate submission process
     setTimeout(() => {
-      setIsProcessing(false);
-      router.push('/ai-assessment-results');
+      setIsSubmitting(false);
+      Alert.alert(
+        'Submission Complete',
+        'Your medical information has been submitted successfully. Our medical team will review your case and provide a detailed second opinion within 24-48 hours.',
+        [
+          { 
+            text: 'View Status', 
+            onPress: () => router.push('/consultation-status')
+          }
+        ]
+      );
     }, 3000);
   };
 
-  const renderUploadStep = () => (
-    <View style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>Upload Your Medical Information</Text>
-      <Text style={styles.stepSubtitle}>
-        Share any relevant medical documents, test results, or images to help us understand your situation better.
-      </Text>
-
-      <View style={styles.uploadContainer}>
-        <TouchableOpacity style={styles.uploadButton} onPress={handleDocumentUpload}>
-          <IconSymbol name="plus.circle.fill" size={48} color="rgb(132, 204, 22)" />
-          <Text style={styles.uploadButtonText}>Upload Documents</Text>
-          <Text style={styles.uploadButtonSubtext}>PDF, Images, Lab Results</Text>
-        </TouchableOpacity>
-      </View>
-
-      {assessmentData.documents.length > 0 && (
-        <View style={styles.documentsContainer}>
-          <Text style={styles.documentsTitle}>Uploaded Documents ({assessmentData.documents.length})</Text>
-          {assessmentData.documents.map((doc) => (
-            <View key={doc.id} style={styles.documentItem}>
-              <IconSymbol name="doc.fill" size={24} color="rgb(59, 130, 246)" />
-              <View style={styles.documentInfo}>
-                <Text style={styles.documentName}>{doc.name}</Text>
-                <Text style={styles.documentSize}>{(doc.size / 1024).toFixed(1)} KB</Text>
-              </View>
-              <TouchableOpacity onPress={() => removeDocument(doc.id)}>
-                <IconSymbol name="trash" size={20} color="rgb(239, 68, 68)" />
-              </TouchableOpacity>
-            </View>
-          ))}
-        </View>
-      )}
-
-      <View style={styles.supportHint}>
-        <IconSymbol name="lightbulb" size={20} color="rgb(251, 204, 21)" />
-        <Text style={styles.supportHintText}>
-          Not sure what to upload? Request support for personalized guidance.
-        </Text>
-      </View>
-    </View>
-  );
-
-  const renderComplaintStep = () => (
-    <View style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>What Brings You Here Today?</Text>
-      <Text style={styles.stepSubtitle}>
-        Describe your main concern or the reason you're seeking a second opinion.
-      </Text>
-
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.textArea}
-          placeholder="Describe your main health concern, symptoms, or the reason you're seeking a second opinion..."
-          multiline
-          numberOfLines={6}
-          value={assessmentData.chiefComplaint}
-          onChangeText={(text) => setAssessmentData(prev => ({ ...prev, chiefComplaint: text }))}
+  const renderProgressBar = () => (
+    <View style={styles.progressContainer}>
+      <View style={styles.progressBar}>
+        <View 
+          style={[
+            styles.progressFill, 
+            { width: `${(currentStep / totalSteps) * 100}%` }
+          ]} 
         />
       </View>
-
-      <View style={styles.exampleContainer}>
-        <Text style={styles.exampleTitle}>Examples:</Text>
-        <View style={styles.exampleItem}>
-          <Text style={styles.exampleText}>• "I've been experiencing chest pain for 2 weeks..."</Text>
-        </View>
-        <View style={styles.exampleItem}>
-          <Text style={styles.exampleText}>• "My doctor recommended surgery, but I want another opinion..."</Text>
-        </View>
-        <View style={styles.exampleItem}>
-          <Text style={styles.exampleText}>• "I'm not sure about my current treatment plan..."</Text>
-        </View>
-      </View>
-    </View>
-  );
-
-  const renderSymptomStep = () => (
-    <View style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>AI-Powered Symptom Analysis</Text>
-      <Text style={styles.stepSubtitle}>
-        Let our AI help you identify and classify your symptoms systematically.
+      <Text style={styles.progressText}>
+        Step {currentStep} of {totalSteps}
       </Text>
-
-      <View style={styles.aiContainer}>
-        <TouchableOpacity 
-          style={styles.aiButton}
-          onPress={() => router.push('/symptom-checker')}
-        >
-          <IconSymbol name="brain.head.profile" size={48} color="rgb(168, 85, 247)" />
-          <Text style={styles.aiButtonText}>Start AI Symptom Checker</Text>
-          <Text style={styles.aiButtonSubtext}>Visual pain mapping & structured analysis</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.alternativeContainer}>
-        <Text style={styles.alternativeTitle}>Or describe symptoms manually:</Text>
-        <TextInput
-          style={styles.textArea}
-          placeholder="List your symptoms, when they started, severity, etc..."
-          multiline
-          numberOfLines={4}
-          value={assessmentData.symptoms.join('\n')}
-          onChangeText={(text) => setAssessmentData(prev => ({ 
-            ...prev, 
-            symptoms: text.split('\n').filter(s => s.trim()) 
-          }))}
-        />
-      </View>
     </View>
   );
 
-  const renderCurrentStep = () => {
+  const renderStepContent = () => {
     switch (currentStep) {
-      case 0:
-        return renderUploadStep();
       case 1:
-        return renderComplaintStep();
-      case 2:
-        return renderSymptomStep();
-      default:
         return (
-          <View style={styles.stepContainer}>
-            <Text style={styles.stepTitle}>Step {currentStep + 1}</Text>
-            <Text style={styles.stepSubtitle}>This step is under development</Text>
-          </View>
+          <Animated.View entering={FadeIn.duration(500)}>
+            <Card variant="default" padding="large" style={styles.stepCard}>
+              <View style={styles.stepHeader}>
+                <IconSymbol name="doc.text" size={32} color={MedicalColors.primary[600]} />
+                <Text style={styles.stepTitle}>Upload Medical Documents</Text>
+                <Text style={styles.stepDescription}>
+                  Share your existing medical records, test results, or any relevant documents
+                </Text>
+              </View>
+
+              <View style={styles.uploadSection}>
+                <View style={styles.uploadButtons}>
+                  <Button
+                    title="Upload Documents"
+                    onPress={handleDocumentUpload}
+                    variant="outline"
+                    size="medium"
+                    icon="doc.text"
+                    iconPosition="left"
+                    style={styles.uploadButton}
+                  />
+                  <Button
+                    title="Upload Images"
+                    onPress={handleImageUpload}
+                    variant="outline"
+                    size="medium"
+                    icon="photo"
+                    iconPosition="left"
+                    style={styles.uploadButton}
+                  />
+                </View>
+
+                {documents.length > 0 && (
+                  <View style={styles.documentsContainer}>
+                    <Text style={styles.documentsTitle}>Uploaded Documents</Text>
+                    {documents.map(doc => (
+                      <View key={doc.id} style={styles.documentItem}>
+                        <View style={styles.documentInfo}>
+                          <IconSymbol 
+                            name={doc.type.includes('image') ? 'photo' : 'doc.text'} 
+                            size={20} 
+                            color={MedicalColors.primary[600]} 
+                          />
+                          <Text style={styles.documentName}>{doc.name}</Text>
+                        </View>
+                        <TouchableOpacity
+                          onPress={() => removeDocument(doc.id)}
+                          style={styles.removeButton}
+                        >
+                          <IconSymbol name="xmark" size={16} color={MedicalColors.accent[600]} />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+            </Card>
+          </Animated.View>
         );
+
+      case 2:
+        return (
+          <Animated.View entering={FadeIn.duration(500)}>
+            <Card variant="default" padding="large" style={styles.stepCard}>
+              <View style={styles.stepHeader}>
+                <IconSymbol name="heart.text.square" size={32} color={MedicalColors.primary[600]} />
+                <Text style={styles.stepTitle}>Chief Complaint</Text>
+                <Text style={styles.stepDescription}>
+                  What is the main health concern or symptom that brought you here?
+                </Text>
+              </View>
+
+              <Input
+                label="Main Health Concern"
+                placeholder="Describe your primary concern in detail..."
+                value={chiefComplaint}
+                onChangeText={setChiefComplaint}
+                multiline
+                style={styles.textArea}
+                required
+              />
+
+              <Input
+                label="Additional Symptoms"
+                placeholder="List any other symptoms you're experiencing..."
+                value={symptoms}
+                onChangeText={setSymptoms}
+                multiline
+                style={styles.textArea}
+              />
+            </Card>
+          </Animated.View>
+        );
+
+      case 3:
+        return (
+          <Animated.View entering={FadeIn.duration(500)}>
+            <Card variant="default" padding="large" style={styles.stepCard}>
+              <View style={styles.stepHeader}>
+                <IconSymbol name="figure.wave" size={32} color={MedicalColors.primary[600]} />
+                <Text style={styles.stepTitle}>Pain Assessment</Text>
+                <Text style={styles.stepDescription}>
+                  Help us understand your pain levels and locations
+                </Text>
+              </View>
+
+              <View style={styles.painSection}>
+                <Text style={styles.painTitle}>Overall Pain Level (0-10)</Text>
+                <View style={styles.painScale}>
+                  {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(level => (
+                    <TouchableOpacity
+                      key={level}
+                      style={[
+                        styles.painLevel,
+                        painLevel === level && styles.painLevelSelected
+                      ]}
+                      onPress={() => setPainLevel(level)}
+                    >
+                      <Text style={[
+                        styles.painLevelText,
+                        painLevel === level && styles.painLevelTextSelected
+                      ]}>
+                        {level}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <Text style={styles.painTitle}>Pain Locations</Text>
+                <View style={styles.painLocationsGrid}>
+                  {painLocations.map(location => (
+                    <TouchableOpacity
+                      key={location.id}
+                      style={[
+                        styles.painLocationItem,
+                        location.selected && styles.painLocationItemSelected
+                      ]}
+                      onPress={() => togglePainLocation(location.id)}
+                    >
+                      <Text style={[
+                        styles.painLocationText,
+                        location.selected && styles.painLocationTextSelected
+                      ]}>
+                        {location.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </Card>
+          </Animated.View>
+        );
+
+      case 4:
+        return (
+          <Animated.View entering={FadeIn.duration(500)}>
+            <Card variant="default" padding="large" style={styles.stepCard}>
+              <View style={styles.stepHeader}>
+                <IconSymbol name="pills" size={32} color={MedicalColors.primary[600]} />
+                <Text style={styles.stepTitle}>Medical History</Text>
+                <Text style={styles.stepDescription}>
+                  Tell us about your medical history, allergies, and current medications
+                </Text>
+              </View>
+
+              <View style={styles.allergySection}>
+                <View style={styles.allergyHeader}>
+                  <Text style={styles.allergyTitle}>Do you have any allergies?</Text>
+                  <Switch
+                    value={hasAllergies}
+                    onValueChange={setHasAllergies}
+                    trackColor={{ false: MedicalColors.neutral[200], true: MedicalColors.primary[200] }}
+                    thumbColor={hasAllergies ? MedicalColors.primary[600] : MedicalColors.neutral[400]}
+                  />
+                </View>
+                {hasAllergies && (
+                  <Input
+                    label="Allergies"
+                    placeholder="List your allergies and reactions..."
+                    value={allergies}
+                    onChangeText={setAllergies}
+                    multiline
+                    style={styles.textArea}
+                  />
+                )}
+              </View>
+
+              <Input
+                label="Current Medications"
+                placeholder="List all medications you're currently taking..."
+                value={currentMedications}
+                onChangeText={setCurrentMedications}
+                multiline
+                style={styles.textArea}
+              />
+            </Card>
+          </Animated.View>
+        );
+
+      case 5:
+        return (
+          <Animated.View entering={FadeIn.duration(500)}>
+            <Card variant="default" padding="large" style={styles.stepCard}>
+              <View style={styles.stepHeader}>
+                <IconSymbol name="checkmark.circle" size={32} color={MedicalColors.secondary[600]} />
+                <Text style={styles.stepTitle}>Review & Submit</Text>
+                <Text style={styles.stepDescription}>
+                  Review your information before submitting for medical review
+                </Text>
+              </View>
+
+              <View style={styles.reviewSection}>
+                <View style={styles.reviewItem}>
+                  <Text style={styles.reviewLabel}>Documents Uploaded:</Text>
+                  <Text style={styles.reviewValue}>{documents.length} files</Text>
+                </View>
+                <View style={styles.reviewItem}>
+                  <Text style={styles.reviewLabel}>Chief Complaint:</Text>
+                  <Text style={styles.reviewValue}>{chiefComplaint || 'Not provided'}</Text>
+                </View>
+                <View style={styles.reviewItem}>
+                  <Text style={styles.reviewLabel}>Pain Level:</Text>
+                  <Text style={styles.reviewValue}>{painLevel}/10</Text>
+                </View>
+                <View style={styles.reviewItem}>
+                  <Text style={styles.reviewLabel}>Pain Locations:</Text>
+                  <Text style={styles.reviewValue}>
+                    {painLocations.filter(p => p.selected).map(p => p.name).join(', ') || 'None selected'}
+                  </Text>
+                </View>
+              </View>
+
+              <Button
+                title={isSubmitting ? 'Submitting...' : 'Submit for Review'}
+                onPress={handleSubmit}
+                variant="primary"
+                size="large"
+                icon={isSubmitting ? undefined : "arrow.up.circle"}
+                iconPosition="right"
+                loading={isSubmitting}
+                disabled={isSubmitting}
+                fullWidth
+                style={styles.submitButton}
+              />
+            </Card>
+          </Animated.View>
+        );
+
+      default:
+        return null;
     }
   };
 
-  if (isProcessing) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.processingContainer}>
-          <Animated.View entering={FadeIn} style={styles.processingContent}>
-            <IconSymbol name="brain.head.profile" size={64} color="rgb(132, 204, 22)" />
-            <Text style={styles.processingTitle}>AI Analysis in Progress</Text>
-            <Text style={styles.processingSubtitle}>
-              Our AI is analyzing your information using standardized medical protocols...
-            </Text>
-            <View style={styles.processingSteps}>
-              <Text style={styles.processingStep}>✓ Reviewing uploaded documents</Text>
-              <Text style={styles.processingStep}>✓ Analyzing symptoms</Text>
-              <Text style={styles.processingStep}>⏳ Generating assessment</Text>
-              <Text style={styles.processingStep}>⏳ Preparing recommendations</Text>
-            </View>
-          </Animated.View>
+  return (
+    <View style={styles.container}>
+      <LinearGradient
+        colors={[MedicalColors.primary[50], MedicalColors.secondary[50], '#FFFFFF']}
+        locations={[0, 0.3, 1]}
+        style={StyleSheet.absoluteFillObject}
+      />
+      
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backButton}
+          >
+            <IconSymbol name="chevron.left" size={24} color={MedicalColors.primary[600]} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Self-Service Assessment</Text>
+          <View style={styles.headerSpacer} />
+        </View>
+
+        {renderProgressBar()}
+
+        <ScrollView 
+          style={styles.content}
+          contentContainerStyle={styles.contentContainer}
+          showsVerticalScrollIndicator={false}
+        >
+          {renderStepContent()}
+        </ScrollView>
+
+        <View style={styles.navigationButtons}>
+          {currentStep > 1 && (
+            <Button
+              title="Previous"
+              onPress={prevStep}
+              variant="outline"
+              size="medium"
+              icon="chevron.left"
+              iconPosition="left"
+              style={styles.navButton}
+            />
+          )}
+          {currentStep < totalSteps && (
+            <Button
+              title="Next"
+              onPress={nextStep}
+              variant="primary"
+              size="medium"
+              icon="chevron.right"
+              iconPosition="right"
+              style={[styles.navButton, { marginLeft: 'auto' }]}
+            />
+          )}
         </View>
       </SafeAreaView>
-    );
-  }
-
-  return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-          <IconSymbol name="chevron.left" size={24} color="rgb(49, 58, 52)" />
-        </TouchableOpacity>
-        
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Self-Service Assessment</Text>
-          <Text style={styles.headerSubtitle}>
-            Step {currentStep + 1} of {steps.length}
-          </Text>
-        </View>
-        
-        <TouchableOpacity style={styles.supportButton} onPress={requestSupport}>
-          <IconSymbol name="questionmark.circle" size={24} color="rgb(132, 204, 22)" />
-        </TouchableOpacity>
-      </View>
-
-      {/* Progress Bar */}
-      <View style={styles.progressContainer}>
-        <View style={styles.progressBar}>
-          <Animated.View 
-            style={[
-              styles.progressFill,
-              { width: `${((currentStep + 1) / steps.length) * 100}%` }
-            ]}
-            entering={SlideInRight}
-          />
-        </View>
-        <Text style={styles.progressText}>
-          {Math.round(((currentStep + 1) / steps.length) * 100)}% Complete
-        </Text>
-      </View>
-
-      {/* Content */}
-      <ScrollView 
-        style={styles.content}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-      >
-        <Animated.View entering={FadeIn} key={currentStep}>
-          {renderCurrentStep()}
-        </Animated.View>
-      </ScrollView>
-
-      {/* Bottom Navigation */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity
-          style={[styles.navButton, styles.backNavButton]}
-          onPress={handleBack}
-        >
-          <IconSymbol name="chevron.left" size={20} color="rgb(132, 204, 22)" />
-          <Text style={styles.backNavText}>Back</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={[styles.navButton, styles.nextNavButton]}
-          onPress={handleNext}
-        >
-          <Text style={styles.nextNavText}>
-            {currentStep === steps.length - 1 ? 'Submit' : 'Next'}
-          </Text>
-          <IconSymbol name="chevron.right" size={20} color="white" />
-        </TouchableOpacity>
-      </View>
-
-      {/* Support Modal */}
-      <Modal
-        visible={supportModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setSupportModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Request Support</Text>
-            <Text style={styles.modalText}>
-              Our medical support team can help guide you through the assessment process. 
-              They'll ensure you're providing the right information and answer any questions you have.
-            </Text>
-            
-            <View style={styles.supportOptions}>
-              <TouchableOpacity style={styles.supportOption} onPress={handleSupportRequest}>
-                <IconSymbol name="phone.fill" size={24} color="rgb(132, 204, 22)" />
-                <Text style={styles.supportOptionText}>Call Me Now</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity style={styles.supportOption} onPress={handleSupportRequest}>
-                <IconSymbol name="message.fill" size={24} color="rgb(59, 130, 246)" />
-                <Text style={styles.supportOptionText}>Chat Support</Text>
-              </TouchableOpacity>
-            </View>
-            
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={styles.modalCancelButton}
-                onPress={() => setSupportModalVisible(false)}
-              >
-                <Text style={styles.modalCancelText}>Continue Alone</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-    </SafeAreaView>
+    </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+  },
+  safeArea: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
+    paddingVertical: 16,
   },
   backButton: {
     padding: 8,
   },
-  headerContent: {
-    flex: 1,
-    alignItems: 'center',
-  },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: 'rgb(49, 58, 52)',
+    color: MedicalColors.neutral[900],
+    flex: 1,
+    textAlign: 'center',
   },
-  headerSubtitle: {
-    fontSize: 14,
-    color: 'rgb(100, 112, 103)',
-    marginTop: 2,
-  },
-  supportButton: {
-    padding: 8,
+  headerSpacer: {
+    width: 40,
   },
   progressContainer: {
     paddingHorizontal: 20,
-    paddingVertical: 15,
+    paddingBottom: 20,
   },
   progressBar: {
     height: 6,
-    backgroundColor: 'rgba(132, 204, 22, 0.2)',
+    backgroundColor: MedicalColors.neutral[200],
     borderRadius: 3,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    backgroundColor: 'rgb(132, 204, 22)',
+    backgroundColor: MedicalColors.primary[600],
     borderRadius: 3,
   },
   progressText: {
-    fontSize: 12,
-    color: 'rgb(100, 112, 103)',
+    fontSize: 14,
+    color: MedicalColors.neutral[600],
     textAlign: 'center',
     marginTop: 8,
+    fontWeight: '500',
   },
   content: {
     flex: 1,
@@ -458,281 +552,186 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 20,
   },
-  stepContainer: {
-    flex: 1,
+  stepCard: {
+    marginBottom: 20,
+  },
+  stepHeader: {
+    alignItems: 'center',
+    marginBottom: 24,
   },
   stepTitle: {
     fontSize: 24,
     fontWeight: '700',
-    color: 'rgb(49, 58, 52)',
+    color: MedicalColors.neutral[900],
+    marginTop: 12,
     marginBottom: 8,
+    textAlign: 'center',
   },
-  stepSubtitle: {
+  stepDescription: {
     fontSize: 16,
-    color: 'rgb(100, 112, 103)',
-    marginBottom: 30,
+    color: MedicalColors.neutral[600],
+    textAlign: 'center',
     lineHeight: 24,
   },
-  uploadContainer: {
-    alignItems: 'center',
-    marginBottom: 30,
+  uploadSection: {
+    gap: 20,
+  },
+  uploadButtons: {
+    flexDirection: 'row',
+    gap: 12,
   },
   uploadButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-    height: 150,
-    borderWidth: 2,
-    borderColor: 'rgb(132, 204, 22)',
-    borderStyle: 'dashed',
-    borderRadius: 16,
-    backgroundColor: 'rgba(132, 204, 22, 0.05)',
-  },
-  uploadButtonText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: 'rgb(132, 204, 22)',
-    marginTop: 10,
-  },
-  uploadButtonSubtext: {
-    fontSize: 14,
-    color: 'rgb(100, 112, 103)',
-    marginTop: 4,
+    flex: 1,
   },
   documentsContainer: {
-    marginBottom: 30,
+    gap: 12,
   },
   documentsTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
-    color: 'rgb(49, 58, 52)',
-    marginBottom: 15,
+    color: MedicalColors.neutral[900],
   },
   documentItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 15,
-    backgroundColor: 'rgba(59, 130, 246, 0.05)',
-    borderRadius: 12,
-    marginBottom: 10,
+    justifyContent: 'space-between',
+    padding: 12,
+    backgroundColor: MedicalColors.neutral[50],
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: MedicalColors.neutral[200],
   },
   documentInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     flex: 1,
-    marginLeft: 12,
   },
   documentName: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: 'rgb(49, 58, 52)',
-  },
-  documentSize: {
     fontSize: 14,
-    color: 'rgb(100, 112, 103)',
-    marginTop: 2,
-  },
-  supportHint: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 15,
-    backgroundColor: 'rgba(251, 204, 21, 0.1)',
-    borderRadius: 12,
-    gap: 10,
-  },
-  supportHintText: {
-    fontSize: 14,
-    color: 'rgb(100, 112, 103)',
+    color: MedicalColors.neutral[700],
     flex: 1,
   },
-  inputContainer: {
-    marginBottom: 30,
+  removeButton: {
+    padding: 4,
   },
   textArea: {
-    borderWidth: 1,
-    borderColor: 'rgba(132, 204, 22, 0.3)',
-    borderRadius: 12,
-    padding: 15,
-    fontSize: 16,
-    color: 'rgb(49, 58, 52)',
+    height: 100,
     textAlignVertical: 'top',
-    minHeight: 120,
   },
-  exampleContainer: {
-    padding: 15,
-    backgroundColor: 'rgba(132, 204, 22, 0.05)',
-    borderRadius: 12,
+  painSection: {
+    gap: 20,
   },
-  exampleTitle: {
+  painTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: 'rgb(49, 58, 52)',
-    marginBottom: 10,
+    color: MedicalColors.neutral[900],
   },
-  exampleItem: {
-    marginBottom: 5,
-  },
-  exampleText: {
-    fontSize: 14,
-    color: 'rgb(100, 112, 103)',
-  },
-  aiContainer: {
-    alignItems: 'center',
-    marginBottom: 30,
-  },
-  aiButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-    padding: 30,
-    backgroundColor: 'rgba(168, 85, 247, 0.1)',
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: 'rgba(168, 85, 247, 0.3)',
-  },
-  aiButtonText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: 'rgb(168, 85, 247)',
-    marginTop: 10,
-  },
-  aiButtonSubtext: {
-    fontSize: 14,
-    color: 'rgb(100, 112, 103)',
-    marginTop: 4,
-  },
-  alternativeContainer: {
-    marginTop: 20,
-  },
-  alternativeTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: 'rgb(49, 58, 52)',
-    marginBottom: 10,
-  },
-  bottomNav: {
+  painScale: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0, 0, 0, 0.1)',
-    backgroundColor: 'white',
+    gap: 4,
   },
-  navButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 25,
-    minWidth: 100,
-    justifyContent: 'center',
-  },
-  backNavButton: {
-    backgroundColor: 'rgba(132, 204, 22, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgb(132, 204, 22)',
-  },
-  nextNavButton: {
-    backgroundColor: 'rgb(132, 204, 22)',
-  },
-  backNavText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: 'rgb(132, 204, 22)',
-    marginLeft: 4,
-  },
-  nextNavText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: 'white',
-    marginRight: 4,
-  },
-  processingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 40,
-  },
-  processingContent: {
-    alignItems: 'center',
-  },
-  processingTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: 'rgb(49, 58, 52)',
-    marginTop: 20,
-    marginBottom: 10,
-  },
-  processingSubtitle: {
-    fontSize: 16,
-    color: 'rgb(100, 112, 103)',
-    textAlign: 'center',
-    marginBottom: 30,
-  },
-  processingSteps: {
-    alignItems: 'flex-start',
-  },
-  processingStep: {
-    fontSize: 16,
-    color: 'rgb(100, 112, 103)',
-    marginBottom: 10,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    backgroundColor: 'white',
-    borderRadius: 20,
-    padding: 30,
-    width: '90%',
-    maxWidth: 400,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: 'rgb(49, 58, 52)',
-    textAlign: 'center',
-    marginBottom: 15,
-  },
-  modalText: {
-    fontSize: 16,
-    color: 'rgb(100, 112, 103)',
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 30,
-  },
-  supportOptions: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 30,
-  },
-  supportOption: {
-    alignItems: 'center',
-    padding: 20,
-    backgroundColor: 'rgba(132, 204, 22, 0.1)',
+  painLevel: {
+    width: 32,
+    height: 32,
     borderRadius: 16,
-    flex: 1,
-    marginHorizontal: 5,
+    backgroundColor: MedicalColors.neutral[100],
+    borderWidth: 1,
+    borderColor: MedicalColors.neutral[200],
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  supportOptionText: {
+  painLevelSelected: {
+    backgroundColor: MedicalColors.primary[600],
+    borderColor: MedicalColors.primary[600],
+  },
+  painLevelText: {
     fontSize: 14,
     fontWeight: '600',
-    color: 'rgb(49, 58, 52)',
-    marginTop: 8,
+    color: MedicalColors.neutral[700],
   },
-  modalButtons: {
+  painLevelTextSelected: {
+    color: '#FFFFFF',
+  },
+  painLocationsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  painLocationItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: MedicalColors.neutral[100],
+    borderWidth: 1,
+    borderColor: MedicalColors.neutral[200],
+    borderRadius: 20,
+  },
+  painLocationItemSelected: {
+    backgroundColor: MedicalColors.primary[600],
+    borderColor: MedicalColors.primary[600],
+  },
+  painLocationText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: MedicalColors.neutral[700],
+  },
+  painLocationTextSelected: {
+    color: '#FFFFFF',
+  },
+  allergySection: {
+    marginBottom: 20,
+  },
+  allergyHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
   },
-  modalCancelButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 30,
-  },
-  modalCancelText: {
+  allergyTitle: {
     fontSize: 16,
-    color: 'rgb(100, 112, 103)',
+    fontWeight: '600',
+    color: MedicalColors.neutral[900],
   },
-});
-
-export default SelfServiceFlowScreen; 
+  reviewSection: {
+    gap: 16,
+    marginBottom: 24,
+  },
+  reviewItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: MedicalColors.neutral[200],
+  },
+  reviewLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: MedicalColors.neutral[700],
+    flex: 1,
+  },
+  reviewValue: {
+    fontSize: 14,
+    color: MedicalColors.neutral[600],
+    flex: 2,
+    textAlign: 'right',
+  },
+  submitButton: {
+    shadowColor: MedicalColors.primary[500],
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  navigationButtons: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: MedicalColors.neutral[200],
+  },
+  navButton: {
+    minWidth: 100,
+  },
+}); 

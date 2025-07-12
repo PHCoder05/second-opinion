@@ -1,805 +1,824 @@
-import { IconSymbol } from '@/components/ui/IconSymbol';
-import * as Haptics from 'expo-haptics';
-import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-    Modal,
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
     SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
     TouchableOpacity,
-    View,
+  Modal,
+  Dimensions,
 } from 'react-native';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import { IconSymbol, Card, Button } from '@/components/ui';
+import { MedicalColors } from '@/constants/Colors';
+import * as Haptics from 'expo-haptics';
+import Animated, { FadeIn, FadeInDown, FadeInUp } from 'react-native-reanimated';
 
-interface MedicalCondition {
-  id: string;
-  name: string;
-  category: string;
-  overview: string;
-  causes: string[];
-  symptoms: string[];
-  diagnosis: {
-    criteria: string[];
-    tests: string[];
-    differentialDiagnosis: string[];
-  };
-  treatment: {
-    firstLine: string[];
-    alternatives: string[];
-    lifestyle: string[];
-  };
-  prognosis: string;
-  prevention: string[];
-  textbookReference: string;
-  crossVerification: string[];
-}
-
-const MedicalEducationScreen = () => {
-  const router = useRouter();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCondition, setSelectedCondition] = useState<MedicalCondition | null>(null);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [activeSection, setActiveSection] = useState('overview');
-
-  // Example medical conditions with standardized textbook knowledge
-  const medicalConditions: MedicalCondition[] = [
-    {
-      id: 'malaria',
-      name: 'Malaria',
-      category: 'Infectious Disease',
-      overview: 'Malaria is a life-threatening disease caused by parasites that are transmitted to people through the bites of infected female Anopheles mosquitoes. It is preventable and curable.',
-      causes: [
-        'Plasmodium falciparum (most severe)',
-        'Plasmodium vivax',
-        'Plasmodium ovale',
-        'Plasmodium malariae',
-        'Plasmodium knowlesi'
-      ],
-      symptoms: [
-        'Fever (often cyclical)',
-        'Chills and sweats',
-        'Headache',
-        'Nausea and vomiting',
-        'Muscle aches',
-        'Fatigue',
-        'Anemia (in severe cases)',
-        'Jaundice (in severe cases)'
-      ],
-      diagnosis: {
-        criteria: [
-          'Clinical symptoms consistent with malaria',
-          'History of travel to endemic area',
-          'Microscopic confirmation of parasites',
-          'Rapid diagnostic test (RDT) positive'
-        ],
-        tests: [
-          'Blood smear microscopy (gold standard)',
-          'Rapid diagnostic tests (RDTs)',
-          'PCR (for species identification)',
-          'Complete blood count',
-          'Liver function tests'
-        ],
-        differentialDiagnosis: [
-          'Typhoid fever',
-          'Dengue fever',
-          'Viral hepatitis',
-          'Bacterial sepsis',
-          'Influenza'
+// Educational content categories
+const EDUCATION_CATEGORIES = [
+  {
+    id: 'understanding_diagnosis',
+    title: 'Understanding Your Diagnosis',
+    icon: 'brain.head.profile',
+    color: MedicalColors.primary[600],
+    description: 'Learn about your condition in simple terms',
+    topics: [
+      'What is your condition?',
+      'How it affects your body',
+      'Why it developed',
+      'Common symptoms explained',
+      'Progression and outlook'
+    ]
+  },
+  {
+    id: 'treatment_options',
+    title: 'Treatment Options',
+    icon: 'pills',
+    color: MedicalColors.secondary[600],
+    description: 'Comprehensive overview of available treatments',
+    topics: [
+      'First-line treatments',
+      'Alternative approaches',
+      'How treatments work',
+      'Expected outcomes',
+      'Potential side effects'
+    ]
+  },
+  {
+    id: 'test_results',
+    title: 'Understanding Test Results',
+    icon: 'chart.line.uptrend.xyaxis',
+    color: MedicalColors.accent[600],
+    description: 'Decode your medical test results',
+    topics: [
+      'Lab values explained',
+      'Imaging findings',
+      'Normal vs abnormal ranges',
+      'What results mean for you',
+      'Follow-up testing needs'
+    ]
+  },
+  {
+    id: 'lifestyle_management',
+    title: 'Lifestyle & Self-Care',
+    icon: 'figure.walk',
+    color: MedicalColors.success[600],
+    description: 'Practical tips for managing your health',
+    topics: [
+      'Diet and nutrition',
+      'Exercise recommendations',
+      'Stress management',
+      'Sleep hygiene',
+      'Preventive measures'
         ]
       },
-      treatment: {
-        firstLine: [
-          'Artemisinin-based combination therapy (ACT) for uncomplicated P. falciparum',
-          'Chloroquine for P. vivax (if sensitive)',
-          'Primaquine for P. vivax/ovale (liver stages)'
-        ],
-        alternatives: [
-          'Quinine + doxycycline for severe cases',
-          'Artesunate for severe malaria',
-          'Mefloquine (where appropriate)'
-        ],
-        lifestyle: [
-          'Complete the full course of medication',
-          'Rest and adequate hydration',
-          'Paracetamol for fever management',
-          'Avoid alcohol during treatment'
+  {
+    id: 'medication_guide',
+    title: 'Medication Guide',
+    icon: 'cross.case',
+    color: MedicalColors.warning[600],
+    description: 'Everything you need to know about your medications',
+    topics: [
+      'How medications work',
+      'Proper dosing and timing',
+      'Side effects to watch for',
+      'Drug interactions',
+      'Adherence strategies'
         ]
       },
-      prognosis: 'Excellent with prompt diagnosis and appropriate treatment. Untreated P. falciparum malaria can be fatal within 24-48 hours.',
-      prevention: [
-        'Use insecticide-treated bed nets',
-        'Apply insect repellent',
-        'Wear long-sleeved clothing',
-        'Chemoprophylaxis for travelers',
-        'Indoor residual spraying'
-      ],
-      textbookReference: 'Harrison\'s Principles of Internal Medicine, 21st Edition, Chapter 229',
-      crossVerification: [
-        'WHO Guidelines for Malaria Treatment',
-        'CDC Malaria Treatment Guidelines',
-        'Cochrane Reviews on Antimalarial Drugs'
-      ]
-    },
-    {
-      id: 'hypertension',
-      name: 'Hypertension',
-      category: 'Cardiovascular Disease',
-      overview: 'Hypertension is a chronic medical condition in which blood pressure in the arteries is persistently elevated. It is a major risk factor for cardiovascular disease.',
+  {
+    id: 'when_to_seek_help',
+    title: 'When to Seek Help',
+    icon: 'exclamationmark.triangle',
+    color: MedicalColors.error[600],
+    description: 'Know when to contact your healthcare provider',
+    topics: [
+      'Warning signs to watch for',
+      'Emergency situations',
+      'When to call your doctor',
+      'Follow-up schedule',
+      'Emergency contacts'
+    ]
+  }
+];
+
+// Sample educational content for a specific condition
+const SAMPLE_CONTENT = {
+  condition: 'Hypertension (High Blood Pressure)',
+  overview: 'High blood pressure is a common condition where the blood pushes against your artery walls with too much force. Think of it like water flowing through a garden hose - when the pressure is too high, it can damage the hose over time.',
       causes: [
-        'Primary (essential) hypertension - unknown cause (90-95%)',
-        'Secondary hypertension - kidney disease, endocrine disorders',
-        'Genetic factors',
-        'Lifestyle factors (diet, exercise, stress)',
-        'Age-related vascular changes'
+    'Family history of high blood pressure',
+    'Being overweight or obese',
+    'Lack of physical activity',
+    'Too much salt in your diet',
+    'Drinking too much alcohol',
+    'Smoking',
+    'Stress',
+    'Age (risk increases as you get older)'
       ],
       symptoms: [
-        'Often asymptomatic ("silent killer")',
-        'Headaches (severe cases)',
+    'Often called "silent killer" - many people have no symptoms',
+    'Headaches (especially in the morning)',
+    'Dizziness or lightheadedness',
+    'Chest pain',
         'Shortness of breath',
-        'Chest pain',
-        'Visual changes',
         'Nosebleeds (rare)',
-        'Dizziness'
+    'Blurred vision'
       ],
-      diagnosis: {
-        criteria: [
-          'Systolic BP ≥140 mmHg or Diastolic BP ≥90 mmHg',
-          'Confirmed on multiple occasions',
-          'Proper measurement technique',
-          'Rule out white coat hypertension'
-        ],
-        tests: [
-          'Blood pressure measurement (multiple readings)',
-          'Ambulatory blood pressure monitoring',
-          'Electrocardiogram (ECG)',
-          'Echocardiogram',
-          'Blood tests (kidney function, electrolytes)',
-          'Urinalysis'
-        ],
-        differentialDiagnosis: [
-          'White coat hypertension',
-          'Masked hypertension',
-          'Secondary causes of hypertension',
-          'Measurement errors'
-        ]
+  treatment: {
+    lifestyle: [
+      'Reduce sodium intake to less than 2,300mg per day',
+      'Exercise for at least 30 minutes most days',
+      'Maintain a healthy weight',
+      'Limit alcohol consumption',
+      'Quit smoking',
+      'Manage stress through relaxation techniques'
+    ],
+    medications: [
+      {
+        name: 'ACE Inhibitors',
+        how_it_works: 'Relax blood vessels by blocking a hormone that narrows them',
+        examples: 'Lisinopril, Enalapril',
+        side_effects: 'Dry cough, dizziness, high potassium levels'
       },
-      treatment: {
-        firstLine: [
-          'ACE inhibitors or ARBs',
-          'Calcium channel blockers',
-          'Thiazide diuretics',
-          'Beta-blockers (specific indications)'
-        ],
-        alternatives: [
-          'Combination therapy',
-          'Aldosterone antagonists',
-          'Alpha-blockers',
-          'Central-acting agents'
-        ],
-        lifestyle: [
-          'DASH diet (low sodium, high potassium)',
-          'Regular aerobic exercise',
-          'Weight management',
-          'Limit alcohol consumption',
-          'Stress management',
-          'Smoking cessation'
-        ]
+      {
+        name: 'Beta Blockers',
+        how_it_works: 'Reduce heart rate and the force of heart contractions',
+        examples: 'Metoprolol, Atenolol',
+        side_effects: 'Fatigue, cold hands/feet, slow heart rate'
       },
-      prognosis: 'Excellent with proper management. Reduces risk of stroke, heart attack, and kidney disease by 20-40%.',
-      prevention: [
-        'Maintain healthy weight',
-        'Regular physical activity',
-        'Healthy diet (low sodium)',
-        'Limit alcohol',
-        'Don\'t smoke',
-        'Manage stress'
-      ],
-      textbookReference: 'Braunwald\'s Heart Disease, 12th Edition, Chapter 26',
-      crossVerification: [
-        'AHA/ACC Hypertension Guidelines',
-        'ESC/ESH Hypertension Guidelines',
-        'JNC 8 Guidelines'
-      ]
-    }
-  ];
+      {
+        name: 'Diuretics',
+        how_it_works: 'Help kidneys remove excess salt and water',
+        examples: 'Hydrochlorothiazide, Furosemide',
+        side_effects: 'Increased urination, dizziness, low potassium'
+      }
+    ]
+  },
+  monitoring: {
+    home_monitoring: 'Check blood pressure at home 2-3 times per week',
+    target_values: 'Goal: Less than 130/80 mmHg for most adults',
+    when_to_call: 'Contact doctor if readings consistently above 140/90 or below 90/60'
+  }
+};
 
-  const filteredConditions = medicalConditions.filter(condition =>
-    condition.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    condition.category.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+const { width: screenWidth } = Dimensions.get('window');
 
-  const handleConditionSelect = (condition: MedicalCondition) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setSelectedCondition(condition);
-    setModalVisible(true);
-    setActiveSection('overview');
+export default function MedicalEducation() {
+  const router = useRouter();
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [showContentModal, setShowContentModal] = useState(false);
+  const [expandedSection, setExpandedSection] = useState<string | null>(null);
+
+  const handleCategoryPress = (category: any) => {
+    setSelectedCategory(category.id);
+    setShowContentModal(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  const renderConditionCard = (condition: MedicalCondition) => (
-    <TouchableOpacity
-      key={condition.id}
-      style={styles.conditionCard}
-      onPress={() => handleConditionSelect(condition)}
-    >
-      <View style={styles.conditionHeader}>
-        <Text style={styles.conditionName}>{condition.name}</Text>
-        <Text style={styles.conditionCategory}>{condition.category}</Text>
+  const toggleSection = (section: string) => {
+    setExpandedSection(expandedSection === section ? null : section);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const renderHeader = () => (
+    <View style={styles.headerSection}>
+      <View style={styles.headerContent}>
+        <Text style={styles.headerTitle}>Medical Education</Text>
+        <Text style={styles.headerSubtitle}>
+          Understanding your health empowers you to make informed decisions
+        </Text>
       </View>
-      <Text style={styles.conditionOverview} numberOfLines={3}>
-        {condition.overview}
-      </Text>
-      <View style={styles.conditionFooter}>
-        <View style={styles.verificationBadge}>
-          <IconSymbol name="checkmark.seal" size={16} color="rgb(34, 197, 94)" />
-          <Text style={styles.verificationText}>Textbook Verified</Text>
+      
+      <View style={styles.trustIndicators}>
+        <View style={styles.trustIndicator}>
+          <IconSymbol name="checkmark.seal" size={24} color={MedicalColors.success[600]} />
+          <Text style={styles.trustIndicatorText}>Evidence-Based</Text>
         </View>
-        <IconSymbol name="chevron.right" size={20} color="rgb(132, 204, 22)" />
+        
+        <View style={styles.trustIndicator}>
+          <IconSymbol name="doc.text.magnifyingglass" size={24} color={MedicalColors.info[600]} />
+          <Text style={styles.trustIndicatorText}>Peer-Reviewed</Text>
+        </View>
+        
+        <View style={styles.trustIndicator}>
+          <IconSymbol name="person.2.fill" size={24} color={MedicalColors.primary[600]} />
+          <Text style={styles.trustIndicatorText}>Doctor-Approved</Text>
+        </View>
       </View>
-    </TouchableOpacity>
+    </View>
   );
 
-  const renderSectionContent = () => {
-    if (!selectedCondition) return null;
-
-    switch (activeSection) {
-      case 'overview':
-        return (
-          <View style={styles.sectionContent}>
-            <Text style={styles.sectionText}>{selectedCondition.overview}</Text>
-            <View style={styles.causesContainer}>
-              <Text style={styles.subSectionTitle}>Causes:</Text>
-              {selectedCondition.causes.map((cause, index) => (
-                <View key={index} style={styles.listItem}>
-                  <Text style={styles.listBullet}>•</Text>
-                  <Text style={styles.listText}>{cause}</Text>
+  const renderEducationCategories = () => (
+    <Card variant="default" padding="large" style={styles.categoriesCard}>
+      <Text style={styles.sectionTitle}>Educational Topics</Text>
+      <Text style={styles.sectionDescription}>
+        Choose a topic to learn more about your health condition
+      </Text>
+      
+      <View style={styles.categoriesGrid}>
+        {EDUCATION_CATEGORIES.map((category, index) => (
+          <Animated.View 
+            key={category.id}
+            entering={FadeInDown.delay(index * 100)}
+            style={styles.categoryItem}
+          >
+            <TouchableOpacity
+              style={styles.categoryButton}
+              onPress={() => handleCategoryPress(category)}
+            >
+              <View style={[styles.categoryIcon, { backgroundColor: `${category.color}20` }]}>
+                <IconSymbol name={category.icon} size={32} color={category.color} />
+              </View>
+              
+              <View style={styles.categoryContent}>
+                <Text style={styles.categoryTitle}>{category.title}</Text>
+                <Text style={styles.categoryDescription}>{category.description}</Text>
                 </View>
+              
+              <IconSymbol name="chevron.right" size={20} color={MedicalColors.neutral[400]} />
+            </TouchableOpacity>
+          </Animated.View>
               ))}
             </View>
+    </Card>
+  );
+
+  const renderConditionOverview = () => (
+    <Card variant="default" padding="large" style={styles.conditionCard}>
+      <View style={styles.conditionHeader}>
+        <IconSymbol name="heart.text.square" size={32} color={MedicalColors.primary[600]} />
+        <Text style={styles.conditionTitle}>Your Condition Explained</Text>
           </View>
-        );
       
-      case 'symptoms':
-        return (
-          <View style={styles.sectionContent}>
-            <Text style={styles.subSectionTitle}>Clinical Presentation:</Text>
-            {selectedCondition.symptoms.map((symptom, index) => (
-              <View key={index} style={styles.symptomItem}>
-                <IconSymbol name="checkmark.circle" size={16} color="rgb(132, 204, 22)" />
-                <Text style={styles.symptomText}>{symptom}</Text>
+      <Text style={styles.conditionName}>{SAMPLE_CONTENT.condition}</Text>
+      <Text style={styles.conditionOverview}>{SAMPLE_CONTENT.overview}</Text>
+      
+      {/* Expandable sections */}
+      <View style={styles.expandableSections}>
+        {/* Causes Section */}
+        <TouchableOpacity
+          style={styles.sectionHeader}
+          onPress={() => toggleSection('causes')}
+        >
+          <Text style={styles.sectionHeaderText}>Common Causes</Text>
+          <IconSymbol 
+            name={expandedSection === 'causes' ? 'chevron.up' : 'chevron.down'} 
+            size={20} 
+            color={MedicalColors.primary[600]} 
+          />
+        </TouchableOpacity>
+        
+        {expandedSection === 'causes' && (
+          <Animated.View entering={FadeIn.duration(300)} style={styles.sectionContent}>
+            {SAMPLE_CONTENT.causes.map((cause, index) => (
+              <View key={index} style={styles.listItem}>
+                <IconSymbol name="circle.fill" size={6} color={MedicalColors.primary[600]} />
+                <Text style={styles.listItemText}>{cause}</Text>
               </View>
             ))}
+          </Animated.View>
+        )}
+        
+        {/* Symptoms Section */}
+        <TouchableOpacity
+          style={styles.sectionHeader}
+          onPress={() => toggleSection('symptoms')}
+        >
+          <Text style={styles.sectionHeaderText}>Signs & Symptoms</Text>
+          <IconSymbol 
+            name={expandedSection === 'symptoms' ? 'chevron.up' : 'chevron.down'} 
+            size={20} 
+            color={MedicalColors.primary[600]} 
+          />
+        </TouchableOpacity>
+        
+        {expandedSection === 'symptoms' && (
+          <Animated.View entering={FadeIn.duration(300)} style={styles.sectionContent}>
+            {SAMPLE_CONTENT.symptoms.map((symptom, index) => (
+              <View key={index} style={styles.listItem}>
+                <IconSymbol name="circle.fill" size={6} color={MedicalColors.warning[600]} />
+                <Text style={styles.listItemText}>{symptom}</Text>
           </View>
-        );
-      
-      case 'diagnosis':
-        return (
-          <View style={styles.sectionContent}>
-            <View style={styles.diagnosisSection}>
-              <Text style={styles.subSectionTitle}>Diagnostic Criteria:</Text>
-              {selectedCondition.diagnosis.criteria.map((criteria, index) => (
+            ))}
+          </Animated.View>
+        )}
+        
+        {/* Treatment Section */}
+        <TouchableOpacity
+          style={styles.sectionHeader}
+          onPress={() => toggleSection('treatment')}
+        >
+          <Text style={styles.sectionHeaderText}>Treatment Options</Text>
+          <IconSymbol 
+            name={expandedSection === 'treatment' ? 'chevron.up' : 'chevron.down'} 
+            size={20} 
+            color={MedicalColors.primary[600]} 
+          />
+        </TouchableOpacity>
+        
+        {expandedSection === 'treatment' && (
+          <Animated.View entering={FadeIn.duration(300)} style={styles.sectionContent}>
+            <Text style={styles.subsectionTitle}>Lifestyle Changes</Text>
+            {SAMPLE_CONTENT.treatment.lifestyle.map((item, index) => (
                 <View key={index} style={styles.listItem}>
-                  <Text style={styles.listNumber}>{index + 1}.</Text>
-                  <Text style={styles.listText}>{criteria}</Text>
+                <IconSymbol name="checkmark.circle" size={16} color={MedicalColors.success[600]} />
+                <Text style={styles.listItemText}>{item}</Text>
                 </View>
               ))}
-            </View>
             
-            <View style={styles.diagnosisSection}>
-              <Text style={styles.subSectionTitle}>Diagnostic Tests:</Text>
-              {selectedCondition.diagnosis.tests.map((test, index) => (
-                <View key={index} style={styles.testItem}>
-                  <IconSymbol name="testtube.2" size={16} color="rgb(59, 130, 246)" />
-                  <Text style={styles.testText}>{test}</Text>
+            <Text style={styles.subsectionTitle}>Medications</Text>
+            {SAMPLE_CONTENT.treatment.medications.map((med, index) => (
+              <View key={index} style={styles.medicationItem}>
+                <Text style={styles.medicationName}>{med.name}</Text>
+                <Text style={styles.medicationDescription}>{med.how_it_works}</Text>
+                <Text style={styles.medicationExamples}>Examples: {med.examples}</Text>
+                <Text style={styles.medicationSideEffects}>Side effects: {med.side_effects}</Text>
                 </View>
               ))}
+          </Animated.View>
+        )}
+            </View>
+    </Card>
+        );
+      
+  const renderActionButtons = () => (
+    <View style={styles.actionButtonsContainer}>
+      <Button
+        title="Ask a Question"
+        onPress={() => router.push('/assisted-help-flow')}
+        variant="primary"
+        size="large"
+        icon="bubble.left.and.bubble.right"
+        iconPosition="left"
+        fullWidth
+        style={styles.primaryActionButton}
+      />
+      
+      <View style={styles.secondaryActions}>
+        <Button
+          title="Print Guide"
+          onPress={() => {}}
+          variant="outline"
+          size="medium"
+          icon="printer"
+          iconPosition="left"
+          style={styles.secondaryActionButton}
+        />
+        
+        <Button
+          title="Share Info"
+          onPress={() => {}}
+          variant="outline"
+          size="medium"
+          icon="square.and.arrow.up"
+          iconPosition="left"
+          style={styles.secondaryActionButton}
+        />
             </View>
           </View>
         );
       
-      case 'treatment':
+  const renderContentModal = () => {
+    const category = EDUCATION_CATEGORIES.find(c => c.id === selectedCategory);
+    if (!category) return null;
+
         return (
-          <View style={styles.sectionContent}>
-            <View style={styles.treatmentSection}>
-              <Text style={styles.subSectionTitle}>First-Line Treatment:</Text>
-              {selectedCondition.treatment.firstLine.map((treatment, index) => (
-                <View key={index} style={styles.treatmentItem}>
-                  <IconSymbol name="pills" size={16} color="rgb(132, 204, 22)" />
-                  <Text style={styles.treatmentText}>{treatment}</Text>
-                </View>
-              ))}
-            </View>
-            
-            <View style={styles.treatmentSection}>
-              <Text style={styles.subSectionTitle}>Lifestyle Modifications:</Text>
-              {selectedCondition.treatment.lifestyle.map((lifestyle, index) => (
-                <View key={index} style={styles.lifestyleItem}>
-                  <IconSymbol name="heart" size={16} color="rgb(239, 68, 68)" />
-                  <Text style={styles.lifestyleText}>{lifestyle}</Text>
-                </View>
-              ))}
-            </View>
+      <Modal
+        visible={showContentModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowContentModal(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>{category.title}</Text>
+            <TouchableOpacity
+              onPress={() => setShowContentModal(false)}
+              style={styles.modalCloseButton}
+            >
+              <IconSymbol name="xmark" size={24} color={MedicalColors.neutral[600]} />
+            </TouchableOpacity>
           </View>
-        );
-      
-      case 'verification':
-        return (
-          <View style={styles.sectionContent}>
-            <View style={styles.verificationSection}>
-              <Text style={styles.subSectionTitle}>Textbook Reference:</Text>
-              <Text style={styles.referenceText}>{selectedCondition.textbookReference}</Text>
+
+          <ScrollView style={styles.modalContent}>
+            <View style={styles.modalSection}>
+              <Text style={styles.modalSectionTitle}>What You'll Learn</Text>
+              <Text style={styles.modalSectionText}>{category.description}</Text>
             </View>
             
-            <View style={styles.verificationSection}>
-              <Text style={styles.subSectionTitle}>Cross-Verification Sources:</Text>
-              {selectedCondition.crossVerification.map((source, index) => (
-                <View key={index} style={styles.verificationItem}>
-                  <IconSymbol name="doc.text.magnifyingglass" size={16} color="rgb(168, 85, 247)" />
-                  <Text style={styles.verificationSourceText}>{source}</Text>
+            <View style={styles.modalSection}>
+              <Text style={styles.modalSectionTitle}>Topics Covered</Text>
+              {category.topics.map((topic, index) => (
+                <View key={index} style={styles.topicItem}>
+                  <IconSymbol name="checkmark.circle" size={16} color={category.color} />
+                  <Text style={styles.topicText}>{topic}</Text>
                 </View>
               ))}
             </View>
             
-            <View style={styles.trustNote}>
-              <IconSymbol name="info.circle" size={20} color="rgb(59, 130, 246)" />
-              <Text style={styles.trustNoteText}>
-                This information is based on standardized medical textbooks and evidence-based guidelines, 
-                ensuring consistency and reliability in medical education.
+            <View style={styles.modalSection}>
+              <Text style={styles.modalSectionTitle}>Why This Matters</Text>
+              <Text style={styles.modalSectionText}>
+                Understanding your condition helps you make informed decisions about your health, 
+                follow treatment plans more effectively, and recognize when to seek medical attention.
               </Text>
             </View>
+          </ScrollView>
+
+          <View style={styles.modalFooter}>
+            <Button
+              title="Start Learning"
+              onPress={() => {
+                setShowContentModal(false);
+                // Navigate to detailed content for this category
+              }}
+              variant="primary"
+              size="large"
+              icon="book.fill"
+              iconPosition="right"
+              fullWidth
+            />
           </View>
+        </View>
+      </Modal>
         );
-      
-      default:
-        return null;
-    }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
+    <View style={styles.container}>
+      <LinearGradient
+        colors={[MedicalColors.primary[50], MedicalColors.secondary[50], '#FFFFFF']}
+        locations={[0, 0.3, 1]}
+        style={StyleSheet.absoluteFillObject}
+      />
+      
+      <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <IconSymbol name="chevron.left" size={24} color="rgb(49, 58, 52)" />
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backButton}
+          >
+            <IconSymbol name="chevron.left" size={24} color={MedicalColors.primary[600]} />
         </TouchableOpacity>
-        
-        <View style={styles.headerContent}>
           <Text style={styles.headerTitle}>Medical Education</Text>
-          <Text style={styles.headerSubtitle}>Standardized Medical Knowledge</Text>
+          <View style={styles.headerSpacer} />
         </View>
         
-        <TouchableOpacity style={styles.searchButton} onPress={() => {}}>
-          <IconSymbol name="magnifyingglass" size={24} color="rgb(132, 204, 22)" />
-        </TouchableOpacity>
-      </View>
-
-      {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <View style={styles.searchBar}>
-          <IconSymbol name="magnifyingglass" size={20} color="rgb(100, 112, 103)" />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search medical conditions..."
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-        </View>
-      </View>
-
-      {/* Content */}
       <ScrollView 
         style={styles.content}
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
       >
-        {/* Introduction */}
-        <Animated.View style={styles.introContainer} entering={FadeIn}>
-          <Text style={styles.introTitle}>Understanding Medical Conditions</Text>
-          <Text style={styles.introDescription}>
-            Access standardized medical knowledge from trusted textbooks and guidelines. 
-            Each condition is explained using evidence-based information that healthcare 
-            professionals rely on worldwide.
-          </Text>
+          <Animated.View entering={FadeInUp.duration(500)}>
+            {renderHeader()}
         </Animated.View>
 
-        {/* Conditions List */}
-        <View style={styles.conditionsContainer}>
-          {filteredConditions.map((condition, index) => (
-            <Animated.View
-              key={condition.id}
-              entering={FadeInDown.delay(100 + index * 50)}
-            >
-              {renderConditionCard(condition)}
-            </Animated.View>
-          ))}
-        </View>
+          {renderEducationCategories()}
+          {renderConditionOverview()}
+          {renderActionButtons()}
 
-        {/* Trust Indicators */}
-        <View style={styles.trustContainer}>
-          <Text style={styles.trustTitle}>Why Trust This Information?</Text>
-          <View style={styles.trustItems}>
-            <View style={styles.trustItem}>
-              <IconSymbol name="book.closed" size={24} color="rgb(132, 204, 22)" />
-              <Text style={styles.trustText}>Based on medical textbooks</Text>
-            </View>
-            <View style={styles.trustItem}>
-              <IconSymbol name="checkmark.seal" size={24} color="rgb(132, 204, 22)" />
-              <Text style={styles.trustText}>Cross-verified with guidelines</Text>
-            </View>
-            <View style={styles.trustItem}>
-              <IconSymbol name="graduationcap" size={24} color="rgb(132, 204, 22)" />
-              <Text style={styles.trustText}>Used in medical education</Text>
+          <View style={styles.trustSection}>
+            <Text style={styles.trustSectionTitle}>Our Commitment to Accuracy</Text>
+            <Text style={styles.trustSectionText}>
+              All educational content is reviewed by board-certified physicians and based on 
+              current medical literature and established clinical guidelines.
+            </Text>
+            
+            <View style={styles.sources}>
+              <Text style={styles.sourcesTitle}>Sources:</Text>
+              <Text style={styles.sourcesText}>• American Heart Association Guidelines</Text>
+              <Text style={styles.sourcesText}>• Harrison's Principles of Internal Medicine</Text>
+              <Text style={styles.sourcesText}>• UpToDate Clinical Decision Support</Text>
+              <Text style={styles.sourcesText}>• Peer-reviewed medical journals</Text>
             </View>
           </View>
-        </View>
-      </ScrollView>
-
-      {/* Condition Detail Modal */}
-      <Modal
-        visible={modalVisible}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <SafeAreaView style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>{selectedCondition?.name}</Text>
-            <TouchableOpacity onPress={() => setModalVisible(false)}>
-              <IconSymbol name="xmark" size={24} color="rgb(100, 112, 103)" />
-            </TouchableOpacity>
-          </View>
-          
-          {/* Section Tabs */}
-          <View style={styles.tabsContainer}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {[
-                { id: 'overview', label: 'Overview' },
-                { id: 'symptoms', label: 'Symptoms' },
-                { id: 'diagnosis', label: 'Diagnosis' },
-                { id: 'treatment', label: 'Treatment' },
-                { id: 'verification', label: 'Sources' }
-              ].map((tab) => (
-                <TouchableOpacity
-                  key={tab.id}
-                  style={[
-                    styles.tab,
-                    activeSection === tab.id && styles.activeTab
-                  ]}
-                  onPress={() => setActiveSection(tab.id)}
-                >
-                  <Text style={[
-                    styles.tabText,
-                    activeSection === tab.id && styles.activeTabText
-                  ]}>
-                    {tab.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-          
-          {/* Section Content */}
-          <ScrollView style={styles.modalContent}>
-            {renderSectionContent()}
           </ScrollView>
         </SafeAreaView>
-      </Modal>
-    </SafeAreaView>
+
+      {renderContentModal()}
+    </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+  },
+  safeArea: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
+    paddingVertical: 16,
   },
   backButton: {
     padding: 8,
   },
-  headerContent: {
-    flex: 1,
-    alignItems: 'center',
-  },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: 'rgb(49, 58, 52)',
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: 'rgb(100, 112, 103)',
-    marginTop: 2,
-  },
-  searchButton: {
-    padding: 8,
-  },
-  searchContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-  },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(132, 204, 22, 0.1)',
-    borderRadius: 12,
-    paddingHorizontal: 15,
-    paddingVertical: 12,
-    gap: 10,
-  },
-  searchInput: {
+    color: MedicalColors.neutral[900],
     flex: 1,
-    fontSize: 16,
-    color: 'rgb(49, 58, 52)',
+    textAlign: 'center',
+  },
+  headerSpacer: {
+    width: 40,
   },
   content: {
     flex: 1,
   },
   contentContainer: {
     paddingHorizontal: 20,
-    paddingBottom: 40,
+    paddingBottom: 20,
   },
-  introContainer: {
-    marginBottom: 30,
+  headerSection: {
+    marginBottom: 24,
   },
-  introTitle: {
-    fontSize: 24,
+  headerContent: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  headerTitle: {
+    fontSize: 28,
     fontWeight: '700',
-    color: 'rgb(49, 58, 52)',
-    marginBottom: 10,
+    color: MedicalColors.neutral[900],
+    marginBottom: 8,
+    textAlign: 'center',
   },
-  introDescription: {
+  headerSubtitle: {
     fontSize: 16,
-    color: 'rgb(100, 112, 103)',
+    color: MedicalColors.neutral[600],
+    textAlign: 'center',
     lineHeight: 24,
   },
-  conditionsContainer: {
-    marginBottom: 30,
+  trustIndicators: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingHorizontal: 20,
+  },
+  trustIndicator: {
+    alignItems: 'center',
+    gap: 8,
+  },
+  trustIndicatorText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: MedicalColors.neutral[700],
+  },
+  categoriesCard: {
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: MedicalColors.neutral[900],
+    marginBottom: 8,
+  },
+  sectionDescription: {
+    fontSize: 16,
+    color: MedicalColors.neutral[600],
+    marginBottom: 20,
+    lineHeight: 24,
+  },
+  categoriesGrid: {
+    gap: 16,
+  },
+  categoryItem: {
+    marginBottom: 8,
+  },
+  categoryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: MedicalColors.neutral[50],
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: MedicalColors.neutral[200],
+    gap: 16,
+  },
+  categoryIcon: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  categoryContent: {
+    flex: 1,
+  },
+  categoryTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: MedicalColors.neutral[900],
+    marginBottom: 4,
+  },
+  categoryDescription: {
+    fontSize: 14,
+    color: MedicalColors.neutral[600],
+    lineHeight: 20,
   },
   conditionCard: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: 'rgba(132, 204, 22, 0.2)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    marginBottom: 20,
   },
   conditionHeader: {
-    marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    gap: 12,
+  },
+  conditionTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: MedicalColors.neutral[900],
   },
   conditionName: {
     fontSize: 18,
-    fontWeight: '700',
-    color: 'rgb(49, 58, 52)',
-  },
-  conditionCategory: {
-    fontSize: 14,
-    color: 'rgb(132, 204, 22)',
-    fontWeight: '500',
-    marginTop: 2,
+    fontWeight: '600',
+    color: MedicalColors.primary[600],
+    marginBottom: 12,
   },
   conditionOverview: {
     fontSize: 16,
-    color: 'rgb(100, 112, 103)',
+    color: MedicalColors.neutral[600],
     lineHeight: 24,
-    marginBottom: 15,
+    marginBottom: 20,
   },
-  conditionFooter: {
+  expandableSections: {
+    gap: 16,
+  },
+  sectionHeader: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: MedicalColors.neutral[200],
   },
-  verificationBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  verificationText: {
-    fontSize: 12,
-    color: 'rgb(34, 197, 94)',
-    fontWeight: '500',
-  },
-  trustContainer: {
-    padding: 20,
-    backgroundColor: 'rgba(132, 204, 22, 0.05)',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(132, 204, 22, 0.2)',
-  },
-  trustTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: 'rgb(49, 58, 52)',
-    marginBottom: 15,
-  },
-  trustItems: {
-    gap: 12,
-  },
-  trustItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  trustText: {
+  sectionHeaderText: {
     fontSize: 16,
-    color: 'rgb(49, 58, 52)',
+    fontWeight: '600',
+    color: MedicalColors.neutral[900],
   },
+  sectionContent: {
+    paddingVertical: 12,
+    gap: 8,
+  },
+  listItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginBottom: 8,
+  },
+  listItemText: {
+    fontSize: 14,
+    color: MedicalColors.neutral[700],
+    flex: 1,
+    lineHeight: 20,
+  },
+  subsectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: MedicalColors.neutral[900],
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  medicationItem: {
+    backgroundColor: MedicalColors.neutral[50],
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  medicationName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: MedicalColors.primary[600],
+    marginBottom: 4,
+  },
+  medicationDescription: {
+    fontSize: 14,
+    color: MedicalColors.neutral[700],
+    marginBottom: 4,
+  },
+  medicationExamples: {
+    fontSize: 14,
+    color: MedicalColors.neutral[600],
+    marginBottom: 4,
+  },
+  medicationSideEffects: {
+    fontSize: 14,
+    color: MedicalColors.warning[600],
+    fontStyle: 'italic',
+  },
+  actionButtonsContainer: {
+    marginBottom: 20,
+    gap: 16,
+  },
+  primaryActionButton: {
+    shadowColor: MedicalColors.primary[500],
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  secondaryActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  secondaryActionButton: {
+    flex: 1,
+  },
+  trustSection: {
+    padding: 16,
+    backgroundColor: MedicalColors.success[50],
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: MedicalColors.success[200],
+  },
+  trustSectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: MedicalColors.success[900],
+    marginBottom: 8,
+  },
+  trustSectionText: {
+    fontSize: 14,
+    color: MedicalColors.success[700],
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  sources: {
+    gap: 4,
+  },
+  sourcesTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: MedicalColors.success[800],
+    marginBottom: 8,
+  },
+  sourcesText: {
+    fontSize: 12,
+    color: MedicalColors.success[700],
+    lineHeight: 18,
+  },
+  // Modal styles
   modalContainer: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#FFFFFF',
   },
   modalHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 15,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
+    borderBottomColor: MedicalColors.neutral[200],
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: 'rgb(49, 58, 52)',
-  },
-  tabsContainer: {
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
-  },
-  tab: {
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    marginHorizontal: 5,
-  },
-  activeTab: {
-    borderBottomWidth: 2,
-    borderBottomColor: 'rgb(132, 204, 22)',
-  },
-  tabText: {
-    fontSize: 16,
-    color: 'rgb(100, 112, 103)',
-  },
-  activeTabText: {
-    color: 'rgb(132, 204, 22)',
+    fontSize: 18,
     fontWeight: '600',
+    color: MedicalColors.neutral[900],
+  },
+  modalCloseButton: {
+    padding: 8,
   },
   modalContent: {
     flex: 1,
     paddingHorizontal: 20,
   },
-  sectionContent: {
-    paddingVertical: 20,
+  modalSection: {
+    marginBottom: 24,
   },
-  sectionText: {
-    fontSize: 16,
-    color: 'rgb(49, 58, 52)',
-    lineHeight: 24,
-    marginBottom: 20,
-  },
-  subSectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: 'rgb(49, 58, 52)',
-    marginBottom: 12,
-  },
-  causesContainer: {
-    marginTop: 20,
-  },
-  listItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 8,
-  },
-  listBullet: {
-    fontSize: 16,
-    color: 'rgb(132, 204, 22)',
-    marginRight: 8,
-    marginTop: 2,
-  },
-  listNumber: {
+  modalSectionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: 'rgb(132, 204, 22)',
-    marginRight: 8,
-    marginTop: 2,
-  },
-  listText: {
-    fontSize: 16,
-    color: 'rgb(49, 58, 52)',
-    flex: 1,
-  },
-  symptomItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    color: MedicalColors.neutral[900],
     marginBottom: 8,
-    gap: 8,
   },
-  symptomText: {
-    fontSize: 16,
-    color: 'rgb(49, 58, 52)',
-  },
-  diagnosisSection: {
-    marginBottom: 25,
-  },
-  testItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-    gap: 8,
-  },
-  testText: {
-    fontSize: 16,
-    color: 'rgb(49, 58, 52)',
-  },
-  treatmentSection: {
-    marginBottom: 25,
-  },
-  treatmentItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-    gap: 8,
-  },
-  treatmentText: {
-    fontSize: 16,
-    color: 'rgb(49, 58, 52)',
-  },
-  lifestyleItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-    gap: 8,
-  },
-  lifestyleText: {
-    fontSize: 16,
-    color: 'rgb(49, 58, 52)',
-  },
-  verificationSection: {
-    marginBottom: 25,
-  },
-  referenceText: {
-    fontSize: 16,
-    color: 'rgb(59, 130, 246)',
-    fontStyle: 'italic',
-  },
-  verificationItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-    gap: 8,
-  },
-  verificationSourceText: {
-    fontSize: 16,
-    color: 'rgb(49, 58, 52)',
-  },
-  trustNote: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    padding: 15,
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-    borderRadius: 12,
-    gap: 10,
-  },
-  trustNoteText: {
+  modalSectionText: {
     fontSize: 14,
-    color: 'rgb(100, 112, 103)',
-    flex: 1,
+    color: MedicalColors.neutral[600],
     lineHeight: 20,
   },
+  topicItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  topicText: {
+    fontSize: 14,
+    color: MedicalColors.neutral[700],
+  },
+  modalFooter: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: MedicalColors.neutral[200],
+  },
 });
-
-export default MedicalEducationScreen; 

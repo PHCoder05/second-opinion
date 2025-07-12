@@ -1,451 +1,451 @@
-import { IconSymbol } from '@/components/ui/IconSymbol';
-import * as Haptics from 'expo-haptics';
-import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    Alert,
-    Dimensions,
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
     SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
     TouchableOpacity,
-    View,
+  Alert,
 } from 'react-native';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import { IconSymbol, Card, Button } from '@/components/ui';
+import { MedicalColors, MedicalGradients } from '@/constants/Colors';
+import * as Haptics from 'expo-haptics';
+import Animated, { FadeIn, FadeInDown, FadeInUp } from 'react-native-reanimated';
 
-const { width: screenWidth } = Dimensions.get('window');
-
-interface ConsultationPath {
-  id: string;
-  title: string;
-  subtitle: string;
-  description: string;
-  icon: string;
-  color: string;
-  backgroundColor: string;
-  features: string[];
-  price: string;
-  duration: string;
-  onPress: () => void;
-}
-
-const ConsultationFlowScreen = () => {
+export default function ConsultationFlow() {
   const router = useRouter();
-  const [selectedPath, setSelectedPath] = useState<string>('');
+  const [selectedPath, setSelectedPath] = useState<'self-service' | 'assisted' | null>(null);
+  const [isPaymentProcessing, setIsPaymentProcessing] = useState(false);
 
-  const consultationPaths: ConsultationPath[] = [
-    {
-      id: 'self-service',
-      title: 'Self-Service',
-      subtitle: 'Independent Assessment',
-      description: 'Upload your information and get AI-guided assistance with optional human support',
-      icon: 'person.fill',
-      color: 'rgb(59, 130, 246)',
-      backgroundColor: 'rgba(59, 130, 246, 0.1)',
-      features: [
-        'Upload medical documents',
-        'AI-powered symptom analysis',
-        'Structured health questionnaire',
-        'Instant preliminary assessment',
-        'Request human support anytime',
-        'Cost-effective option'
-      ],
-      price: '$29',
-      duration: '15-30 minutes',
-      onPress: () => handlePathSelection('self-service')
-    },
-    {
-      id: 'assisted-help',
-      title: 'Assisted Help',
-      subtitle: 'Expert Guidance',
-      description: 'Direct connection with our medical support team for personalized guidance',
-      icon: 'person.2.fill',
-      color: 'rgb(132, 204, 22)',
-      backgroundColor: 'rgba(132, 204, 22, 0.1)',
-      features: [
-        'Direct medical team support',
-        'Personalized data collection',
-        'Expert symptom evaluation',
-        'Guided through each step',
-        'Immediate clarifications',
-        'Comprehensive assessment'
-      ],
-      price: '$79',
-      duration: '45-60 minutes',
-      onPress: () => handlePathSelection('assisted-help')
-    }
-  ];
-
-  const handlePathSelection = (pathId: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setSelectedPath(pathId);
+  const handlePaymentAndStart = async () => {
+    setIsPaymentProcessing(true);
     
-    // Show confirmation modal
-    Alert.alert(
-      'Confirm Your Choice',
-      `You've selected ${pathId === 'self-service' ? 'Self-Service' : 'Assisted Help'}. Would you like to proceed?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Proceed', 
-          onPress: () => proceedWithPath(pathId)
-        }
-      ]
-    );
+    // Simulate payment processing
+    setTimeout(() => {
+      setIsPaymentProcessing(false);
+      Alert.alert(
+        'Payment Successful',
+        'Your consultation has been activated. How would you like to proceed?',
+        [{ text: 'Continue', style: 'default' }]
+      );
+    }, 2000);
   };
 
-  const proceedWithPath = (pathId: string) => {
-    if (pathId === 'self-service') {
-      // Navigate to self-service flow
+  const handlePathSelection = (path: 'self-service' | 'assisted') => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setSelectedPath(path);
+    
+    if (path === 'self-service') {
       router.push('/self-service-flow');
     } else {
-      // Navigate to assisted help flow
       router.push('/assisted-help-flow');
     }
   };
 
-  const handleBack = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.back();
-  };
+  const consultationFeatures = [
+    {
+      icon: 'checkmark.shield',
+      title: 'Standardized Process',
+      description: 'Following medical textbook protocols for accurate diagnosis'
+    },
+    {
+      icon: 'doc.text.magnifyingglass',
+      title: 'Complete Data Review',
+      description: 'Thorough analysis of your medical history and symptoms'
+    },
+    {
+      icon: 'person.2.badge.plus',
+      title: 'Expert Support Team',
+      description: 'Trained professionals guide you through each step'
+    },
+    {
+      icon: 'lightbulb',
+      title: 'Clear Explanations',
+      description: 'Understand your diagnosis and treatment options'
+    }
+  ];
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <Animated.View style={styles.header} entering={FadeIn}>
-        <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-          <IconSymbol name="chevron.left" size={24} color="rgb(49, 58, 52)" />
-        </TouchableOpacity>
-        
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>How Can We Help You?</Text>
-          <Text style={styles.headerSubtitle}>Choose your consultation path</Text>
-        </View>
-        
-        <View style={styles.headerSpacer} />
-      </Animated.View>
-
+    <View style={styles.container}>
+      <LinearGradient
+        colors={[MedicalColors.primary[50], MedicalColors.secondary[50], '#FFFFFF']}
+        locations={[0, 0.3, 1]}
+        style={StyleSheet.absoluteFillObject}
+      />
+      
+      <SafeAreaView style={styles.safeArea}>
       <ScrollView 
-        style={styles.content}
-        contentContainerStyle={styles.contentContainer}
+          style={styles.scrollView} 
+          contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Introduction */}
-        <Animated.View style={styles.introContainer} entering={FadeInDown.delay(200)}>
-          <Text style={styles.introTitle}>Welcome to Second Opinion</Text>
-          <Text style={styles.introDescription}>
-            We understand you're seeking clarity about your health. Choose the path that best fits your needs - 
-            whether you prefer to explore independently or want expert guidance every step of the way.
+          {/* Header */}
+          <Animated.View style={styles.header} entering={FadeInUp.duration(800)}>
+            <View style={styles.headerIcon}>
+              <LinearGradient
+                colors={MedicalGradients.primary}
+                style={styles.headerIconGradient}
+              >
+                <IconSymbol name="stethoscope" size={32} color="#FFFFFF" />
+              </LinearGradient>
+            </View>
+            <Text style={styles.headerTitle}>Get Your Second Opinion</Text>
+            <Text style={styles.headerSubtitle}>
+              Professional medical consultation with clear explanations and standardized care
           </Text>
         </Animated.View>
 
-        {/* Consultation Paths */}
-        <View style={styles.pathsContainer}>
-          {consultationPaths.map((path, index) => (
-            <Animated.View
-              key={path.id}
-              entering={FadeInDown.delay(300 + index * 100)}
-              style={styles.pathCard}
-            >
-              <TouchableOpacity
-                style={[
-                  styles.pathButton,
-                  selectedPath === path.id && styles.pathButtonSelected
-                ]}
-                onPress={path.onPress}
-                activeOpacity={0.7}
-              >
-                {/* Header */}
-                <View style={styles.pathHeader}>
-                  <View style={[styles.pathIcon, { backgroundColor: path.backgroundColor }]}>
-                    <IconSymbol name={path.icon} size={32} color={path.color} />
-                  </View>
-                  <View style={styles.pathHeaderText}>
-                    <Text style={styles.pathTitle}>{path.title}</Text>
-                    <Text style={styles.pathSubtitle}>{path.subtitle}</Text>
-                  </View>
-                  <View style={styles.pathPricing}>
-                    <Text style={styles.pathPrice}>{path.price}</Text>
-                    <Text style={styles.pathDuration}>{path.duration}</Text>
-                  </View>
+          {/* Payment Section */}
+          <Animated.View entering={FadeInDown.delay(200).duration(800)}>
+            <Card variant="elevated" padding="large" style={styles.paymentCard}>
+              <View style={styles.paymentHeader}>
+                <Text style={styles.paymentTitle}>Consultation Fee</Text>
+                <View style={styles.priceContainer}>
+                  <Text style={styles.currency}>$</Text>
+                  <Text style={styles.price}>49</Text>
+                  <Text style={styles.period}>per consultation</Text>
                 </View>
+              </View>
 
-                {/* Description */}
-                <Text style={styles.pathDescription}>{path.description}</Text>
-
-                {/* Features */}
                 <View style={styles.featuresContainer}>
-                  {path.features.map((feature, featureIndex) => (
-                    <View key={featureIndex} style={styles.featureItem}>
-                      <View style={[styles.featureBullet, { backgroundColor: path.color }]} />
-                      <Text style={styles.featureText}>{feature}</Text>
+                {consultationFeatures.map((feature, index) => (
+                  <View key={index} style={styles.featureItem}>
+                    <IconSymbol name={feature.icon} size={20} color={MedicalColors.primary[600]} />
+                    <View style={styles.featureContent}>
+                      <Text style={styles.featureTitle}>{feature.title}</Text>
+                      <Text style={styles.featureDescription}>{feature.description}</Text>
+                    </View>
                     </View>
                   ))}
                 </View>
 
-                {/* Action Button */}
-                <View style={styles.pathActionContainer}>
-                  <View style={[styles.pathActionButton, { backgroundColor: path.color }]}>
-                    <Text style={styles.pathActionText}>Choose This Path</Text>
-                    <IconSymbol name="arrow.right" size={20} color="white" />
+              <Button
+                title={isPaymentProcessing ? 'Processing Payment...' : 'Pay & Start Consultation'}
+                onPress={handlePaymentAndStart}
+                variant="primary"
+                size="large"
+                icon={isPaymentProcessing ? undefined : "creditcard"}
+                iconPosition="left"
+                loading={isPaymentProcessing}
+                disabled={isPaymentProcessing}
+                fullWidth
+                style={styles.paymentButton}
+              />
+            </Card>
+          </Animated.View>
+
+          {/* Path Selection */}
+          {!isPaymentProcessing && (
+            <Animated.View entering={FadeInDown.delay(400).duration(800)}>
+              <View style={styles.pathSection}>
+                <Text style={styles.pathTitle}>Choose Your Consultation Path</Text>
+                <Text style={styles.pathSubtitle}>
+                  How would you like to proceed with your consultation?
+                </Text>
+
+                <View style={styles.pathOptions}>
+                  {/* Self-Service Path */}
+                  <TouchableOpacity
+                    style={styles.pathOption}
+                    onPress={() => handlePathSelection('self-service')}
+                    activeOpacity={0.8}
+                  >
+                    <Card variant="outlined" padding="large" style={styles.pathCard}>
+                      <View style={styles.pathIcon}>
+                        <IconSymbol name="person" size={32} color={MedicalColors.primary[600]} />
+                      </View>
+                      <Text style={styles.pathOptionTitle}>Self-Service</Text>
+                      <Text style={styles.pathOptionDescription}>
+                        Upload your medical information and symptoms independently. 
+                        Great if you have your medical records ready.
+                      </Text>
+                      <View style={styles.pathFeatures}>
+                        <View style={styles.pathFeature}>
+                          <IconSymbol name="clock" size={16} color={MedicalColors.secondary[600]} />
+                          <Text style={styles.pathFeatureText}>Faster process</Text>
+                        </View>
+                        <View style={styles.pathFeature}>
+                          <IconSymbol name="doc.text" size={16} color={MedicalColors.secondary[600]} />
+                          <Text style={styles.pathFeatureText}>Upload documents</Text>
+                        </View>
+                        <View style={styles.pathFeature}>
+                          <IconSymbol name="checkmark" size={16} color={MedicalColors.secondary[600]} />
+                          <Text style={styles.pathFeatureText}>Direct submission</Text>
+                        </View>
+                      </View>
+                    </Card>
+                  </TouchableOpacity>
+
+                  {/* Assisted Path */}
+                  <TouchableOpacity
+                    style={styles.pathOption}
+                    onPress={() => handlePathSelection('assisted')}
+                    activeOpacity={0.8}
+                  >
+                    <Card variant="outlined" padding="large" style={styles.pathCard}>
+                      <View style={styles.pathIcon}>
+                        <IconSymbol name="person.2" size={32} color={MedicalColors.accent[600]} />
+                      </View>
+                      <Text style={styles.pathOptionTitle}>Assisted Help</Text>
+                      <Text style={styles.pathOptionDescription}>
+                        Our support team will guide you through the process, 
+                        asking the right questions and helping collect your data.
+                      </Text>
+                      <View style={styles.pathFeatures}>
+                        <View style={styles.pathFeature}>
+                          <IconSymbol name="phone" size={16} color={MedicalColors.secondary[600]} />
+                          <Text style={styles.pathFeatureText}>Personal guidance</Text>
+                        </View>
+                        <View style={styles.pathFeature}>
+                          <IconSymbol name="questionmark.circle" size={16} color={MedicalColors.secondary[600]} />
+                          <Text style={styles.pathFeatureText}>Expert questions</Text>
+                        </View>
+                        <View style={styles.pathFeature}>
+                          <IconSymbol name="heart" size={16} color={MedicalColors.secondary[600]} />
+                          <Text style={styles.pathFeatureText}>Personalized care</Text>
+                        </View>
                   </View>
+                    </Card>
+                  </TouchableOpacity>
                 </View>
-              </TouchableOpacity>
+              </View>
             </Animated.View>
-          ))}
+          )}
+
+          {/* Trust Building Section */}
+          <Animated.View entering={FadeInDown.delay(600).duration(800)}>
+            <Card variant="health" padding="large" style={styles.trustCard}>
+              <View style={styles.trustHeader}>
+                <IconSymbol name="shield.checkered" size={24} color={MedicalColors.secondary[600]} />
+                <Text style={styles.trustTitle}>Why Trust Our Process?</Text>
         </View>
-
-        {/* Trust Indicators */}
-        <Animated.View style={styles.trustContainer} entering={FadeInDown.delay(600)}>
-          <Text style={styles.trustTitle}>Why Choose Second Opinion?</Text>
-          <View style={styles.trustIndicators}>
-            <View style={styles.trustItem}>
-              <IconSymbol name="shield.checkered" size={24} color="rgb(34, 197, 94)" />
-              <Text style={styles.trustText}>Verified Medical Experts</Text>
+              <Text style={styles.trustDescription}>
+                Our platform follows the same standard protocols taught in medical textbooks. 
+                We believe in transparency, clear communication, and involving you in every step 
+                of your healthcare journey.
+              </Text>
+              <View style={styles.trustPoints}>
+                <View style={styles.trustPoint}>
+                  <IconSymbol name="book.closed" size={16} color={MedicalColors.secondary[600]} />
+                  <Text style={styles.trustPointText}>Textbook-based protocols</Text>
             </View>
-            <View style={styles.trustItem}>
-              <IconSymbol name="lock.shield" size={24} color="rgb(34, 197, 94)" />
-              <Text style={styles.trustText}>HIPAA Compliant</Text>
+                <View style={styles.trustPoint}>
+                  <IconSymbol name="eye" size={16} color={MedicalColors.secondary[600]} />
+                  <Text style={styles.trustPointText}>Complete transparency</Text>
             </View>
-            <View style={styles.trustItem}>
-              <IconSymbol name="checkmark.seal" size={24} color="rgb(34, 197, 94)" />
-              <Text style={styles.trustText}>Standardized Process</Text>
+                <View style={styles.trustPoint}>
+                  <IconSymbol name="person.badge.plus" size={16} color={MedicalColors.secondary[600]} />
+                  <Text style={styles.trustPointText}>Patient involvement</Text>
             </View>
           </View>
-        </Animated.View>
-
-        {/* Emergency Notice */}
-        <Animated.View style={styles.emergencyNotice} entering={FadeInDown.delay(700)}>
-          <IconSymbol name="exclamationmark.triangle.fill" size={24} color="rgb(239, 68, 68)" />
-          <View style={styles.emergencyText}>
-            <Text style={styles.emergencyTitle}>Emergency Situations</Text>
-            <Text style={styles.emergencyDescription}>
-              If you're experiencing a medical emergency, please call 911 or go to your nearest emergency room immediately.
-            </Text>
-          </View>
+            </Card>
         </Animated.View>
       </ScrollView>
     </SafeAreaView>
+    </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+  },
+  safeArea: {
+    flex: 1,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingVertical: 20,
   },
   header: {
-    flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
+    marginBottom: 32,
   },
-  backButton: {
-    padding: 8,
+  headerIcon: {
+    marginBottom: 16,
   },
-  headerContent: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: 'rgb(49, 58, 52)',
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: 'rgb(100, 112, 103)',
-    marginTop: 2,
-  },
-  headerSpacer: {
-    width: 40,
-  },
-  content: {
-    flex: 1,
-  },
-  contentContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-  },
-  introContainer: {
-    paddingVertical: 30,
-    alignItems: 'center',
-  },
-  introTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: 'rgb(49, 58, 52)',
-    textAlign: 'center',
-    marginBottom: 15,
-  },
-  introDescription: {
-    fontSize: 16,
-    color: 'rgb(100, 112, 103)',
-    textAlign: 'center',
-    lineHeight: 24,
-    paddingHorizontal: 10,
-  },
-  pathsContainer: {
-    gap: 20,
-  },
-  pathCard: {
-    marginBottom: 10,
-  },
-  pathButton: {
-    backgroundColor: 'white',
-    borderRadius: 20,
-    padding: 20,
-    borderWidth: 2,
-    borderColor: 'rgba(132, 204, 22, 0.2)',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  pathButtonSelected: {
-    borderColor: 'rgb(132, 204, 22)',
-    backgroundColor: 'rgba(132, 204, 22, 0.02)',
-  },
-  pathHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  pathIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+  headerIconGradient: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 15,
+    shadowColor: MedicalColors.primary[500],
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 8,
   },
-  pathHeaderText: {
-    flex: 1,
-  },
-  pathTitle: {
-    fontSize: 20,
+  headerTitle: {
+    fontSize: 28,
     fontWeight: '700',
-    color: 'rgb(49, 58, 52)',
-    marginBottom: 4,
+    color: MedicalColors.neutral[900],
+    textAlign: 'center',
+    marginBottom: 8,
   },
-  pathSubtitle: {
-    fontSize: 14,
-    color: 'rgb(100, 112, 103)',
-  },
-  pathPricing: {
-    alignItems: 'flex-end',
-  },
-  pathPrice: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: 'rgb(132, 204, 22)',
-  },
-  pathDuration: {
-    fontSize: 12,
-    color: 'rgb(100, 112, 103)',
-    marginTop: 2,
-  },
-  pathDescription: {
+  headerSubtitle: {
     fontSize: 16,
-    color: 'rgb(100, 112, 103)',
-    lineHeight: 22,
-    marginBottom: 20,
+    color: MedicalColors.neutral[600],
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  paymentCard: {
+    marginBottom: 32,
+  },
+  paymentHeader: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  paymentTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: MedicalColors.neutral[900],
+    marginBottom: 8,
+  },
+  priceContainer: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+  },
+  currency: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: MedicalColors.primary[600],
+  },
+  price: {
+    fontSize: 48,
+    fontWeight: '700',
+    color: MedicalColors.primary[600],
+  },
+  period: {
+    fontSize: 16,
+    color: MedicalColors.neutral[600],
   },
   featuresContainer: {
-    marginBottom: 20,
+    gap: 16,
+    marginBottom: 24,
   },
   featureItem: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
+    alignItems: 'flex-start',
+    gap: 12,
   },
-  featureBullet: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginRight: 12,
-  },
-  featureText: {
-    fontSize: 14,
-    color: 'rgb(49, 58, 52)',
+  featureContent: {
     flex: 1,
   },
-  pathActionContainer: {
-    alignItems: 'center',
-  },
-  pathActionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 30,
-    paddingVertical: 15,
-    borderRadius: 25,
-    gap: 8,
-  },
-  pathActionText: {
+  featureTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: 'white',
+    color: MedicalColors.neutral[900],
+    marginBottom: 4,
   },
-  trustContainer: {
-    marginTop: 40,
-    padding: 20,
-    backgroundColor: 'rgba(132, 204, 22, 0.05)',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(132, 204, 22, 0.2)',
+  featureDescription: {
+    fontSize: 14,
+    color: MedicalColors.neutral[600],
+    lineHeight: 20,
+  },
+  paymentButton: {
+    shadowColor: MedicalColors.primary[500],
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  pathSection: {
+    marginBottom: 32,
+  },
+  pathTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: MedicalColors.neutral[900],
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  pathSubtitle: {
+    fontSize: 16,
+    color: MedicalColors.neutral[600],
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 24,
+  },
+  pathOptions: {
+    gap: 16,
+  },
+  pathOption: {
+    width: '100%',
+  },
+  pathCard: {
+    borderWidth: 2,
+    borderColor: MedicalColors.neutral[200],
+  },
+  pathIcon: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  pathOptionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: MedicalColors.neutral[900],
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  pathOptionDescription: {
+    fontSize: 14,
+    color: MedicalColors.neutral[600],
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  pathFeatures: {
+    gap: 8,
+  },
+  pathFeature: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  pathFeatureText: {
+    fontSize: 14,
+    color: MedicalColors.neutral[700],
+    fontWeight: '500',
+  },
+  trustCard: {
+    marginBottom: 20,
+  },
+  trustHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 16,
   },
   trustTitle: {
     fontSize: 18,
-    fontWeight: '700',
-    color: 'rgb(49, 58, 52)',
-    textAlign: 'center',
-    marginBottom: 20,
+    fontWeight: '600',
+    color: MedicalColors.neutral[900],
   },
-  trustIndicators: {
-    gap: 15,
+  trustDescription: {
+    fontSize: 14,
+    color: MedicalColors.neutral[600],
+    lineHeight: 20,
+    marginBottom: 16,
   },
-  trustItem: {
+  trustPoints: {
+    gap: 8,
+  },
+  trustPoint: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
   },
-  trustText: {
-    fontSize: 16,
-    color: 'rgb(49, 58, 52)',
+  trustPointText: {
+    fontSize: 14,
+    color: MedicalColors.neutral[700],
     fontWeight: '500',
   },
-  emergencyNotice: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginTop: 30,
-    padding: 20,
-    backgroundColor: 'rgba(239, 68, 68, 0.05)',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.2)',
-    gap: 12,
-  },
-  emergencyText: {
-    flex: 1,
-  },
-  emergencyTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: 'rgb(239, 68, 68)',
-    marginBottom: 5,
-  },
-  emergencyDescription: {
-    fontSize: 14,
-    color: 'rgb(100, 112, 103)',
-    lineHeight: 20,
-  },
 });
-
-export default ConsultationFlowScreen; 

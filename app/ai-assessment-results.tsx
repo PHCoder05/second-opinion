@@ -1,781 +1,889 @@
-import { IconSymbol } from '@/components/ui/IconSymbol';
-import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-    Alert,
-    Modal,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  SafeAreaView,
+  TouchableOpacity,
+  Alert,
+  Dimensions,
 } from 'react-native';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import { IconSymbol, Card, Button } from '@/components/ui';
+import { MedicalColors } from '@/constants/Colors';
+import * as Haptics from 'expo-haptics';
+import Animated, { FadeIn, FadeInDown, FadeInUp } from 'react-native-reanimated';
 
-interface AssessmentResult {
-  id: string;
-  condition: string;
-  confidence: number;
-  explanation: string;
-  symptoms: string[];
-  recommendations: string[];
-  urgency: 'low' | 'medium' | 'high' | 'urgent';
-  nextSteps: string[];
-}
-
-interface Investigation {
-  id: string;
-  type: string;
-  name: string;
-  reason: string;
-  urgency: string;
-  estimated_cost: string;
-}
-
-const AIAssessmentResultsScreen = () => {
-  const router = useRouter();
-  const [selectedResult, setSelectedResult] = useState<AssessmentResult | null>(null);
-  const [explanationModalVisible, setExplanationModalVisible] = useState(false);
-  const [investigationModalVisible, setInvestigationModalVisible] = useState(false);
-
-  // Simulated AI assessment results
-  const assessmentResults: AssessmentResult[] = [
+// Mock assessment data - in real app this would come from the AI analysis
+const ASSESSMENT_DATA = {
+  confidence: 85,
+  primaryConditions: [
     {
-      id: '1',
-      condition: 'Gastroesophageal Reflux Disease (GERD)',
-      confidence: 87,
-      explanation: 'Based on your symptoms of heartburn, chest pain after meals, and difficulty swallowing, along with the pattern of symptoms worsening when lying down, the clinical presentation is highly consistent with GERD. This is a common condition where stomach acid flows back into the esophagus.',
-      symptoms: ['Heartburn after meals', 'Chest pain', 'Difficulty swallowing', 'Symptoms worse when lying down'],
+      id: 'hypertension',
+      name: 'Essential Hypertension',
+      probability: 78,
+      severity: 'Moderate',
+      description: 'High blood pressure without an identifiable cause',
+      symptoms: ['Headache', 'Dizziness', 'Chest Pain'],
       recommendations: [
-        'Elevate head of bed 6-8 inches',
-        'Avoid trigger foods (spicy, fatty, acidic)',
-        'Eat smaller, more frequent meals',
-        'Avoid eating 2-3 hours before bedtime',
-        'Consider over-the-counter antacids'
+        'Blood pressure monitoring',
+        'Lifestyle modifications',
+        'Dietary changes (low sodium)',
+        'Regular exercise program'
       ],
-      urgency: 'medium',
-      nextSteps: [
-        'Consult with gastroenterologist',
-        'Consider upper endoscopy if symptoms persist',
-        'Lifestyle modifications as first-line treatment'
-      ]
+      urgency: 'routine'
     },
     {
-      id: '2',
-      condition: 'Anxiety-Related Chest Pain',
-      confidence: 65,
-      explanation: 'Your chest pain episodes, especially when associated with stress, rapid heartbeat, and shortness of breath, could be related to anxiety. However, cardiac causes should be ruled out first given the chest pain presentation.',
-      symptoms: ['Chest pain during stress', 'Rapid heartbeat', 'Shortness of breath', 'Sweating'],
+      id: 'migraine',
+      name: 'Migraine Headache',
+      probability: 65,
+      severity: 'Moderate',
+      description: 'Recurring headaches with associated symptoms',
+      symptoms: ['Severe Headache', 'Nausea', 'Light Sensitivity'],
       recommendations: [
-        'Practice deep breathing exercises',
-        'Regular physical exercise',
+        'Keep headache diary',
+        'Identify and avoid triggers',
         'Stress management techniques',
-        'Consider counseling or therapy'
+        'Consider preventive medication'
       ],
-      urgency: 'medium',
-      nextSteps: [
-        'Rule out cardiac causes first',
-        'EKG and basic cardiac workup',
-        'Consider mental health evaluation'
-      ]
-    }
-  ];
-
-  const recommendedInvestigations: Investigation[] = [
-    {
-      id: '1',
-      type: 'Imaging',
-      name: 'Upper GI Endoscopy',
-      reason: 'To visualize the esophagus and stomach lining, check for inflammation, ulcers, or other abnormalities',
-      urgency: 'Within 2-4 weeks',
-      estimated_cost: '$800-1200'
+      urgency: 'routine'
     },
     {
-      id: '2',
-      type: 'Laboratory',
-      name: 'H. pylori Test',
-      reason: 'To check for bacterial infection that can cause stomach ulcers and gastritis',
-      urgency: 'Within 1 week',
-      estimated_cost: '$50-100'
+      id: 'tension',
+      name: 'Tension-Type Headache',
+      probability: 52,
+      severity: 'Mild',
+      description: 'Common headache often related to stress or muscle tension',
+      symptoms: ['Mild to Moderate Headache', 'Muscle Tension', 'Stress'],
+      recommendations: [
+        'Stress reduction techniques',
+        'Regular sleep schedule',
+        'Relaxation exercises',
+        'Over-the-counter pain relievers as needed'
+      ],
+      urgency: 'routine'
+    }
+  ],
+  redFlags: [
+    {
+      id: 'sudden_onset',
+      description: 'Sudden onset of severe symptoms',
+      present: false
     },
     {
-      id: '3',
-      type: 'Imaging',
-      name: 'Barium Swallow Study',
-      reason: 'To evaluate swallowing function and check for structural abnormalities',
-      urgency: 'Within 2 weeks',
-      estimated_cost: '$300-500'
+      id: 'neurological',
+      description: 'Neurological symptoms (weakness, numbness, speech changes)',
+      present: false
+    },
+    {
+      id: 'chest_pain',
+      description: 'Chest pain with shortness of breath',
+      present: true
     }
-  ];
+  ],
+  recommendations: {
+    immediate: [
+      'Monitor blood pressure regularly',
+      'Maintain headache diary',
+      'Avoid known triggers'
+    ],
+    followUp: [
+      'Schedule appointment with primary care physician',
+      'Consider cardiology consultation',
+      'Blood work including lipid panel'
+    ],
+    lifestyle: [
+      'Reduce sodium intake',
+      'Increase physical activity',
+      'Manage stress levels',
+      'Maintain regular sleep schedule'
+    ]
+  },
+  nextSteps: [
+    {
+      id: 'consultation',
+      title: 'Professional Medical Consultation',
+      description: 'Get a comprehensive second opinion from our medical team',
+      priority: 'high',
+      timeframe: '24-48 hours'
+    },
+    {
+      id: 'monitoring',
+      title: 'Symptom Monitoring',
+      description: 'Track your symptoms for better diagnosis',
+      priority: 'medium',
+      timeframe: 'Ongoing'
+    },
+    {
+      id: 'tests',
+      title: 'Diagnostic Tests',
+      description: 'Additional tests may be recommended',
+      priority: 'medium',
+      timeframe: '1-2 weeks'
+    }
+  ]
+};
 
-  const handleExplainCondition = (result: AssessmentResult) => {
-    setSelectedResult(result);
-    setExplanationModalVisible(true);
-  };
+const { width: screenWidth } = Dimensions.get('window');
 
-  const handleRequestSecondOpinion = () => {
-    Alert.alert(
-      'Request Human Review',
-      'Would you like a medical doctor to review these AI results and provide additional insights?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Yes, Request Review ($49)', onPress: () => router.push('/doctor-review-request') }
-      ]
-    );
-  };
-
-  const handleScheduleInvestigation = (investigation: Investigation) => {
-    Alert.alert(
-      'Schedule Investigation',
-      `Would you like help scheduling ${investigation.name}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Find Providers', onPress: () => router.push('/find-providers') },
-        { text: 'Get More Info', onPress: () => setInvestigationModalVisible(true) }
-      ]
-    );
-  };
+export default function AIAssessmentResults() {
+  const router = useRouter();
+  const [selectedCondition, setSelectedCondition] = useState<string | null>(null);
+  const [showDetailedView, setShowDetailedView] = useState(false);
 
   const getUrgencyColor = (urgency: string) => {
     switch (urgency) {
-      case 'low': return 'rgb(34, 197, 94)';
-      case 'medium': return 'rgb(251, 204, 21)';
-      case 'high': return 'rgb(249, 115, 22)';
-      case 'urgent': return 'rgb(239, 68, 68)';
-      default: return 'rgb(100, 112, 103)';
+      case 'urgent':
+        return MedicalColors.error[600];
+      case 'soon':
+        return MedicalColors.warning[600];
+      case 'routine':
+        return MedicalColors.success[600];
+      default:
+        return MedicalColors.neutral[600];
+    }
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'high':
+        return MedicalColors.error[600];
+      case 'medium':
+        return MedicalColors.warning[600];
+      case 'low':
+        return MedicalColors.success[600];
+      default:
+        return MedicalColors.neutral[600];
     }
   };
 
   const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 80) return 'rgb(34, 197, 94)';
-    if (confidence >= 60) return 'rgb(251, 204, 21)';
-    return 'rgb(249, 115, 22)';
+    if (confidence >= 80) return MedicalColors.success[600];
+    if (confidence >= 60) return MedicalColors.warning[600];
+    return MedicalColors.error[600];
   };
 
-  return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <IconSymbol name="chevron.left" size={24} color="rgb(49, 58, 52)" />
-        </TouchableOpacity>
-        
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>AI Assessment Results</Text>
-          <Text style={styles.headerSubtitle}>Standardized Medical Analysis</Text>
+  const handleProceedToConsultation = () => {
+    Alert.alert(
+      'Proceed to Consultation',
+      'Your AI assessment results will be included in your consultation for more comprehensive evaluation.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Continue',
+          onPress: () => router.push('/consultation-flow')
+        }
+      ]
+    );
+  };
+
+  const renderConfidenceSection = () => (
+    <Card variant="default" padding="large" style={styles.confidenceCard}>
+      <View style={styles.confidenceHeader}>
+        <IconSymbol name="brain.head.profile" size={32} color={MedicalColors.primary[600]} />
+        <Text style={styles.confidenceTitle}>AI Analysis Confidence</Text>
+      </View>
+      
+      <View style={styles.confidenceContainer}>
+        <View style={styles.confidenceCircle}>
+          <View style={[styles.confidenceInner, { backgroundColor: getConfidenceColor(ASSESSMENT_DATA.confidence) }]}>
+            <Text style={styles.confidenceValue}>{ASSESSMENT_DATA.confidence}%</Text>
+          </View>
         </View>
         
-        <TouchableOpacity style={styles.shareButton} onPress={() => {}}>
-          <IconSymbol name="square.and.arrow.up" size={24} color="rgb(132, 204, 22)" />
+        <View style={styles.confidenceDetails}>
+          <Text style={styles.confidenceLabel}>Analysis Quality</Text>
+          <Text style={styles.confidenceDescription}>
+            {ASSESSMENT_DATA.confidence >= 80 ? 'High confidence in analysis' :
+             ASSESSMENT_DATA.confidence >= 60 ? 'Moderate confidence in analysis' :
+             'Low confidence - professional review recommended'}
+          </Text>
+          
+          <View style={styles.confidenceBar}>
+            <View 
+              style={[
+                styles.confidenceFill, 
+                { 
+                  width: `${ASSESSMENT_DATA.confidence}%`,
+                  backgroundColor: getConfidenceColor(ASSESSMENT_DATA.confidence)
+                }
+              ]} 
+            />
+          </View>
+        </View>
+      </View>
+    </Card>
+  );
+
+  const renderConditionCard = (condition: any, index: number) => (
+    <Animated.View 
+      key={condition.id} 
+      entering={FadeInDown.delay(index * 100)}
+      style={styles.conditionCard}
+    >
+      <Card variant="default" padding="large">
+        <View style={styles.conditionHeader}>
+          <View style={styles.conditionTitleContainer}>
+            <Text style={styles.conditionName}>{condition.name}</Text>
+            <View style={styles.conditionMeta}>
+              <View style={[styles.probabilityBadge, { backgroundColor: `${getUrgencyColor(condition.urgency)}20` }]}>
+                <Text style={[styles.probabilityText, { color: getUrgencyColor(condition.urgency) }]}>
+                  {condition.probability}% match
+                </Text>
+              </View>
+              <View style={styles.severityBadge}>
+                <Text style={styles.severityText}>{condition.severity}</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        <Text style={styles.conditionDescription}>{condition.description}</Text>
+
+        <View style={styles.symptomsContainer}>
+          <Text style={styles.symptomsTitle}>Matching Symptoms:</Text>
+          <View style={styles.symptomsGrid}>
+            {condition.symptoms.map((symptom: string, idx: number) => (
+              <View key={idx} style={styles.symptomChip}>
+                <Text style={styles.symptomChipText}>{symptom}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        <TouchableOpacity
+          style={styles.expandButton}
+          onPress={() => setSelectedCondition(selectedCondition === condition.id ? null : condition.id)}
+        >
+          <Text style={styles.expandButtonText}>
+            {selectedCondition === condition.id ? 'Hide Details' : 'View Recommendations'}
+          </Text>
+          <IconSymbol 
+            name={selectedCondition === condition.id ? "chevron.up" : "chevron.down"} 
+            size={16} 
+            color={MedicalColors.primary[600]} 
+          />
         </TouchableOpacity>
+
+        {selectedCondition === condition.id && (
+          <Animated.View entering={FadeIn.duration(300)} style={styles.conditionDetails}>
+            <View style={styles.recommendationsContainer}>
+              <Text style={styles.recommendationsTitle}>Recommendations:</Text>
+              {condition.recommendations.map((rec: string, idx: number) => (
+                <View key={idx} style={styles.recommendationItem}>
+                  <IconSymbol name="checkmark.circle" size={16} color={MedicalColors.success[600]} />
+                  <Text style={styles.recommendationText}>{rec}</Text>
+                </View>
+              ))}
+            </View>
+          </Animated.View>
+        )}
+      </Card>
+    </Animated.View>
+  );
+
+  const renderRedFlags = () => {
+    const presentRedFlags = ASSESSMENT_DATA.redFlags.filter(flag => flag.present);
+    
+    if (presentRedFlags.length === 0) {
+      return (
+        <Card variant="default" padding="large" style={styles.redFlagsCard}>
+          <View style={styles.redFlagsHeader}>
+            <IconSymbol name="checkmark.shield" size={32} color={MedicalColors.success[600]} />
+            <Text style={styles.redFlagsTitle}>No Immediate Concerns</Text>
+          </View>
+          <Text style={styles.redFlagsDescription}>
+            No urgent warning signs detected in your symptoms.
+          </Text>
+        </Card>
+      );
+    }
+
+    return (
+      <Card variant="default" padding="large" style={[styles.redFlagsCard, styles.redFlagsWarning]}>
+        <View style={styles.redFlagsHeader}>
+          <IconSymbol name="exclamationmark.triangle" size={32} color={MedicalColors.warning[600]} />
+          <Text style={styles.redFlagsTitle}>Warning Signs Detected</Text>
+        </View>
+        <Text style={styles.redFlagsDescription}>
+          Some symptoms may require immediate attention:
+        </Text>
+        {presentRedFlags.map((flag, index) => (
+          <View key={flag.id} style={styles.redFlagItem}>
+            <IconSymbol name="exclamationmark.circle" size={16} color={MedicalColors.warning[600]} />
+            <Text style={styles.redFlagText}>{flag.description}</Text>
+          </View>
+        ))}
+        <View style={styles.urgentCallToAction}>
+          <Text style={styles.urgentText}>Consider seeking immediate medical attention</Text>
+        </View>
+      </Card>
+    );
+  };
+
+  const renderRecommendations = () => (
+    <Card variant="default" padding="large" style={styles.recommendationsCard}>
+      <View style={styles.recommendationsHeader}>
+        <IconSymbol name="list.bullet.clipboard" size={32} color={MedicalColors.primary[600]} />
+        <Text style={styles.recommendationsTitle}>Recommendations</Text>
       </View>
 
-      <ScrollView 
-        style={styles.content}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* AI Analysis Summary */}
-        <Animated.View style={styles.summaryContainer} entering={FadeIn}>
-          <View style={styles.summaryHeader}>
-            <IconSymbol name="brain.head.profile" size={32} color="rgb(132, 204, 22)" />
-            <View style={styles.summaryHeaderText}>
-              <Text style={styles.summaryTitle}>AI Medical Analysis Complete</Text>
-              <Text style={styles.summarySubtitle}>
-                Based on standardized medical protocols and evidence-based guidelines
+      <View style={styles.recommendationSection}>
+        <Text style={styles.recommendationSectionTitle}>Immediate Actions:</Text>
+        {ASSESSMENT_DATA.recommendations.immediate.map((rec, index) => (
+          <View key={index} style={styles.recommendationItem}>
+            <IconSymbol name="1.circle" size={16} color={MedicalColors.primary[600]} />
+            <Text style={styles.recommendationText}>{rec}</Text>
+          </View>
+        ))}
+      </View>
+
+      <View style={styles.recommendationSection}>
+        <Text style={styles.recommendationSectionTitle}>Follow-up Care:</Text>
+        {ASSESSMENT_DATA.recommendations.followUp.map((rec, index) => (
+          <View key={index} style={styles.recommendationItem}>
+            <IconSymbol name="2.circle" size={16} color={MedicalColors.secondary[600]} />
+            <Text style={styles.recommendationText}>{rec}</Text>
+          </View>
+        ))}
+      </View>
+
+      <View style={styles.recommendationSection}>
+        <Text style={styles.recommendationSectionTitle}>Lifestyle Changes:</Text>
+        {ASSESSMENT_DATA.recommendations.lifestyle.map((rec, index) => (
+          <View key={index} style={styles.recommendationItem}>
+            <IconSymbol name="3.circle" size={16} color={MedicalColors.accent[600]} />
+            <Text style={styles.recommendationText}>{rec}</Text>
+          </View>
+        ))}
+      </View>
+    </Card>
+  );
+
+  const renderNextSteps = () => (
+    <Card variant="default" padding="large" style={styles.nextStepsCard}>
+      <View style={styles.nextStepsHeader}>
+        <IconSymbol name="arrow.right.circle" size={32} color={MedicalColors.primary[600]} />
+        <Text style={styles.nextStepsTitle}>Next Steps</Text>
+      </View>
+
+      {ASSESSMENT_DATA.nextSteps.map((step, index) => (
+        <View key={step.id} style={styles.nextStepItem}>
+          <View style={styles.nextStepHeader}>
+            <View style={styles.nextStepTitleContainer}>
+              <Text style={styles.nextStepTitle}>{step.title}</Text>
+              <View style={[styles.priorityBadge, { backgroundColor: `${getPriorityColor(step.priority)}20` }]}>
+                <Text style={[styles.priorityText, { color: getPriorityColor(step.priority) }]}>
+                  {step.priority.toUpperCase()}
+                </Text>
+              </View>
+            </View>
+            <Text style={styles.nextStepTimeframe}>{step.timeframe}</Text>
+          </View>
+          <Text style={styles.nextStepDescription}>{step.description}</Text>
+        </View>
+      ))}
+    </Card>
+  );
+
+  const renderActionButtons = () => (
+    <View style={styles.actionButtonsContainer}>
+      <Button
+        title="Get Professional Second Opinion"
+        onPress={handleProceedToConsultation}
+        variant="primary"
+        size="large"
+        icon="stethoscope"
+        iconPosition="left"
+        fullWidth
+        style={styles.primaryActionButton}
+      />
+      
+      <View style={styles.secondaryActions}>
+        <Button
+          title="Save Results"
+          onPress={() => Alert.alert('Results Saved', 'Your assessment results have been saved to your medical records.')}
+          variant="outline"
+          size="medium"
+          icon="square.and.arrow.down"
+          iconPosition="left"
+          style={styles.secondaryActionButton}
+        />
+        
+        <Button
+          title="Share Results"
+          onPress={() => Alert.alert('Share Results', 'Share your results with your healthcare provider.')}
+          variant="outline"
+          size="medium"
+          icon="square.and.arrow.up"
+          iconPosition="left"
+          style={styles.secondaryActionButton}
+        />
+      </View>
+    </View>
+  );
+
+  return (
+    <View style={styles.container}>
+      <LinearGradient
+        colors={[MedicalColors.primary[50], MedicalColors.secondary[50], '#FFFFFF']}
+        locations={[0, 0.3, 1]}
+        style={StyleSheet.absoluteFillObject}
+      />
+      
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backButton}
+          >
+            <IconSymbol name="chevron.left" size={24} color={MedicalColors.primary[600]} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>AI Assessment Results</Text>
+          <View style={styles.headerSpacer} />
+        </View>
+
+        <ScrollView 
+          style={styles.content}
+          contentContainerStyle={styles.contentContainer}
+          showsVerticalScrollIndicator={false}
+        >
+          <Animated.View entering={FadeInUp.duration(500)}>
+            <View style={styles.introSection}>
+              <Text style={styles.introTitle}>Your Symptom Analysis</Text>
+              <Text style={styles.introDescription}>
+                Based on your symptoms, our AI has identified potential conditions and recommendations. 
+                This is a preliminary assessment - professional medical consultation is recommended.
               </Text>
             </View>
-          </View>
-        </Animated.View>
+          </Animated.View>
 
-        {/* Assessment Results */}
-        <View style={styles.resultsContainer}>
-          <Text style={styles.sectionTitle}>Possible Conditions</Text>
-          <Text style={styles.sectionSubtitle}>
-            Ranked by likelihood based on your symptoms and medical history
-          </Text>
-          
-          {assessmentResults.map((result, index) => (
-            <Animated.View
-              key={result.id}
-              style={styles.resultCard}
-              entering={FadeInDown.delay(200 + index * 100)}
-            >
-              <View style={styles.resultHeader}>
-                <View style={styles.resultTitleContainer}>
-                  <Text style={styles.resultCondition}>{result.condition}</Text>
-                  <View style={styles.confidenceContainer}>
-                    <View style={[
-                      styles.confidenceBar,
-                      { backgroundColor: getConfidenceColor(result.confidence) }
-                    ]}>
-                      <View style={[
-                        styles.confidenceFill,
-                        { width: `${result.confidence}%` }
-                      ]} />
-                    </View>
-                    <Text style={[
-                      styles.confidenceText,
-                      { color: getConfidenceColor(result.confidence) }
-                    ]}>
-                      {result.confidence}% confidence
-                    </Text>
-                  </View>
-                </View>
-                
-                <View style={[
-                  styles.urgencyBadge,
-                  { backgroundColor: getUrgencyColor(result.urgency) }
-                ]}>
-                  <Text style={styles.urgencyText}>{result.urgency.toUpperCase()}</Text>
-                </View>
-              </View>
+          {renderConfidenceSection()}
+          {renderRedFlags()}
 
-              <Text style={styles.resultExplanation}>{result.explanation}</Text>
-
-              <View style={styles.resultActions}>
-                <TouchableOpacity
-                  style={styles.explainButton}
-                  onPress={() => handleExplainCondition(result)}
-                >
-                  <IconSymbol name="info.circle" size={20} color="rgb(59, 130, 246)" />
-                  <Text style={styles.explainButtonText}>Explain This</Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity
-                  style={styles.symptomMatchButton}
-                  onPress={() => {}}
-                >
-                  <IconSymbol name="checkmark.circle" size={20} color="rgb(34, 197, 94)" />
-                  <Text style={styles.symptomMatchButtonText}>View Symptom Match</Text>
-                </TouchableOpacity>
-              </View>
-            </Animated.View>
-          ))}
-        </View>
-
-        {/* Recommended Investigations */}
-        <View style={styles.investigationsContainer}>
-          <Text style={styles.sectionTitle}>Recommended Investigations</Text>
-          <Text style={styles.sectionSubtitle}>
-            Based on medical protocols for your symptoms
-          </Text>
-          
-          {recommendedInvestigations.map((investigation, index) => (
-            <Animated.View
-              key={investigation.id}
-              style={styles.investigationCard}
-              entering={FadeInDown.delay(400 + index * 100)}
-            >
-              <View style={styles.investigationHeader}>
-                <View style={styles.investigationIcon}>
-                  <IconSymbol 
-                    name={investigation.type === 'Imaging' ? 'camera.fill' : 'testtube.2'} 
-                    size={24} 
-                    color="rgb(168, 85, 247)" 
-                  />
-                </View>
-                <View style={styles.investigationInfo}>
-                  <Text style={styles.investigationName}>{investigation.name}</Text>
-                  <Text style={styles.investigationUrgency}>{investigation.urgency}</Text>
-                </View>
-                <Text style={styles.investigationCost}>{investigation.estimated_cost}</Text>
-              </View>
+          <Animated.View entering={FadeInUp.delay(300)}>
+            <View style={styles.conditionsSection}>
+              <Text style={styles.sectionTitle}>Potential Conditions</Text>
+              <Text style={styles.sectionDescription}>
+                Conditions are ranked by probability based on your symptoms
+              </Text>
               
-              <Text style={styles.investigationReason}>{investigation.reason}</Text>
-              
-              <TouchableOpacity
-                style={styles.scheduleButton}
-                onPress={() => handleScheduleInvestigation(investigation)}
-              >
-                <Text style={styles.scheduleButtonText}>Schedule Investigation</Text>
-                <IconSymbol name="calendar.badge.plus" size={16} color="white" />
-              </TouchableOpacity>
-            </Animated.View>
-          ))}
-        </View>
-
-        {/* Trust and Verification */}
-        <View style={styles.trustContainer}>
-          <Text style={styles.trustTitle}>How We Ensure Accuracy</Text>
-          <View style={styles.trustItems}>
-            <View style={styles.trustItem}>
-              <IconSymbol name="checkmark.seal" size={24} color="rgb(34, 197, 94)" />
-              <Text style={styles.trustText}>Evidence-based medical protocols</Text>
+              {ASSESSMENT_DATA.primaryConditions.map((condition, index) => 
+                renderConditionCard(condition, index)
+              )}
             </View>
-            <View style={styles.trustItem}>
-              <IconSymbol name="doc.text.magnifyingglass" size={24} color="rgb(34, 197, 94)" />
-              <Text style={styles.trustText}>Cross-referenced with medical literature</Text>
-            </View>
-            <View style={styles.trustItem}>
-              <IconSymbol name="brain.head.profile" size={24} color="rgb(34, 197, 94)" />
-              <Text style={styles.trustText}>AI trained on millions of medical cases</Text>
-            </View>
-          </View>
-        </View>
+          </Animated.View>
 
-        {/* Action Buttons */}
-        <View style={styles.actionContainer}>
-          <TouchableOpacity
-            style={styles.secondOpinionButton}
-            onPress={handleRequestSecondOpinion}
-          >
-            <IconSymbol name="person.2.fill" size={20} color="white" />
-            <Text style={styles.secondOpinionButtonText}>Get Doctor Review</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={styles.saveButton}
-            onPress={() => router.push('/medical-records')}
-          >
-            <IconSymbol name="square.and.arrow.down" size={20} color="rgb(132, 204, 22)" />
-            <Text style={styles.saveButtonText}>Save to Records</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+          {renderRecommendations()}
+          {renderNextSteps()}
+          {renderActionButtons()}
 
-      {/* Explanation Modal */}
-      <Modal
-        visible={explanationModalVisible}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setExplanationModalVisible(false)}
-      >
-        <SafeAreaView style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Medical Explanation</Text>
-            <TouchableOpacity onPress={() => setExplanationModalVisible(false)}>
-              <IconSymbol name="xmark" size={24} color="rgb(100, 112, 103)" />
-            </TouchableOpacity>
+          <View style={styles.disclaimer}>
+            <IconSymbol name="exclamationmark.circle" size={20} color={MedicalColors.warning[600]} />
+            <Text style={styles.disclaimerText}>
+              This AI assessment is for informational purposes only and should not replace professional medical advice. 
+              Always consult with a healthcare provider for proper diagnosis and treatment.
+            </Text>
           </View>
-          
-          {selectedResult && (
-            <ScrollView style={styles.modalContent}>
-              <Text style={styles.modalConditionTitle}>{selectedResult.condition}</Text>
-              
-              <View style={styles.modalSection}>
-                <Text style={styles.modalSectionTitle}>What is this condition?</Text>
-                <Text style={styles.modalSectionText}>{selectedResult.explanation}</Text>
-              </View>
-              
-              <View style={styles.modalSection}>
-                <Text style={styles.modalSectionTitle}>Your symptoms that match:</Text>
-                {selectedResult.symptoms.map((symptom, index) => (
-                  <View key={index} style={styles.symptomItem}>
-                    <IconSymbol name="checkmark.circle.fill" size={16} color="rgb(34, 197, 94)" />
-                    <Text style={styles.symptomText}>{symptom}</Text>
-                  </View>
-                ))}
-              </View>
-              
-              <View style={styles.modalSection}>
-                <Text style={styles.modalSectionTitle}>Recommended actions:</Text>
-                {selectedResult.recommendations.map((rec, index) => (
-                  <View key={index} style={styles.recommendationItem}>
-                    <Text style={styles.recommendationNumber}>{index + 1}.</Text>
-                    <Text style={styles.recommendationText}>{rec}</Text>
-                  </View>
-                ))}
-              </View>
-              
-              <View style={styles.modalSection}>
-                <Text style={styles.modalSectionTitle}>Next steps:</Text>
-                {selectedResult.nextSteps.map((step, index) => (
-                  <View key={index} style={styles.nextStepItem}>
-                    <IconSymbol name="arrow.right.circle" size={16} color="rgb(132, 204, 22)" />
-                    <Text style={styles.nextStepText}>{step}</Text>
-                  </View>
-                ))}
-              </View>
-            </ScrollView>
-          )}
-        </SafeAreaView>
-      </Modal>
-    </SafeAreaView>
+        </ScrollView>
+      </SafeAreaView>
+    </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+  },
+  safeArea: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
+    paddingVertical: 16,
   },
   backButton: {
     padding: 8,
   },
-  headerContent: {
-    flex: 1,
-    alignItems: 'center',
-  },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: 'rgb(49, 58, 52)',
+    color: MedicalColors.neutral[900],
+    flex: 1,
+    textAlign: 'center',
   },
-  headerSubtitle: {
-    fontSize: 14,
-    color: 'rgb(100, 112, 103)',
-    marginTop: 2,
-  },
-  shareButton: {
-    padding: 8,
+  headerSpacer: {
+    width: 40,
   },
   content: {
     flex: 1,
   },
   contentContainer: {
     paddingHorizontal: 20,
-    paddingBottom: 40,
+    paddingBottom: 20,
   },
-  summaryContainer: {
-    marginTop: 20,
-    marginBottom: 30,
-  },
-  summaryHeader: {
-    flexDirection: 'row',
+  introSection: {
     alignItems: 'center',
-    padding: 20,
-    backgroundColor: 'rgba(132, 204, 22, 0.1)',
-    borderRadius: 16,
+    marginBottom: 24,
   },
-  summaryHeaderText: {
-    flex: 1,
-    marginLeft: 15,
-  },
-  summaryTitle: {
-    fontSize: 18,
+  introTitle: {
+    fontSize: 28,
     fontWeight: '700',
-    color: 'rgb(49, 58, 52)',
-    marginBottom: 4,
-  },
-  summarySubtitle: {
-    fontSize: 14,
-    color: 'rgb(100, 112, 103)',
-  },
-  resultsContainer: {
-    marginBottom: 30,
-  },
-  sectionTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: 'rgb(49, 58, 52)',
+    color: MedicalColors.neutral[900],
     marginBottom: 8,
+    textAlign: 'center',
   },
-  sectionSubtitle: {
+  introDescription: {
     fontSize: 16,
-    color: 'rgb(100, 112, 103)',
+    color: MedicalColors.neutral[600],
+    textAlign: 'center',
+    lineHeight: 24,
+    paddingHorizontal: 20,
+  },
+  confidenceCard: {
     marginBottom: 20,
   },
-  resultCard: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: 'rgba(132, 204, 22, 0.2)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  resultHeader: {
+  confidenceHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 15,
+    alignItems: 'center',
+    marginBottom: 20,
+    gap: 12,
   },
-  resultTitleContainer: {
-    flex: 1,
-  },
-  resultCondition: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: 'rgb(49, 58, 52)',
-    marginBottom: 8,
+  confidenceTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: MedicalColors.neutral[900],
   },
   confidenceContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 20,
+  },
+  confidenceCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: MedicalColors.neutral[100],
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 4,
+  },
+  confidenceInner: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  confidenceValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  confidenceDetails: {
+    flex: 1,
+  },
+  confidenceLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: MedicalColors.neutral[900],
+    marginBottom: 4,
+  },
+  confidenceDescription: {
+    fontSize: 14,
+    color: MedicalColors.neutral[600],
+    marginBottom: 12,
   },
   confidenceBar: {
-    width: 60,
-    height: 4,
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
-    borderRadius: 2,
-    marginRight: 8,
+    height: 8,
+    backgroundColor: MedicalColors.neutral[200],
+    borderRadius: 4,
+    overflow: 'hidden',
   },
   confidenceFill: {
     height: '100%',
-    borderRadius: 2,
+    borderRadius: 4,
   },
-  confidenceText: {
-    fontSize: 12,
-    fontWeight: '600',
+  redFlagsCard: {
+    marginBottom: 20,
   },
-  urgencyBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
+  redFlagsWarning: {
+    borderWidth: 2,
+    borderColor: MedicalColors.warning[300],
   },
-  urgencyText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: 'white',
-  },
-  resultExplanation: {
-    fontSize: 16,
-    color: 'rgb(100, 112, 103)',
-    lineHeight: 24,
-    marginBottom: 15,
-  },
-  resultActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  explainButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-    borderRadius: 20,
-    gap: 6,
-  },
-  explainButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: 'rgb(59, 130, 246)',
-  },
-  symptomMatchButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: 'rgba(34, 197, 94, 0.1)',
-    borderRadius: 20,
-    gap: 6,
-  },
-  symptomMatchButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: 'rgb(34, 197, 94)',
-  },
-  investigationsContainer: {
-    marginBottom: 30,
-  },
-  investigationCard: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: 'rgba(168, 85, 247, 0.2)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  investigationHeader: {
+  redFlagsHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 12,
-  },
-  investigationIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(168, 85, 247, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  investigationInfo: {
-    flex: 1,
-  },
-  investigationName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: 'rgb(49, 58, 52)',
-  },
-  investigationUrgency: {
-    fontSize: 14,
-    color: 'rgb(100, 112, 103)',
-  },
-  investigationCost: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: 'rgb(168, 85, 247)',
-  },
-  investigationReason: {
-    fontSize: 14,
-    color: 'rgb(100, 112, 103)',
-    lineHeight: 20,
-    marginBottom: 15,
-  },
-  scheduleButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    backgroundColor: 'rgb(168, 85, 247)',
-    borderRadius: 12,
-    gap: 8,
-  },
-  scheduleButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: 'white',
-  },
-  trustContainer: {
-    padding: 20,
-    backgroundColor: 'rgba(34, 197, 94, 0.05)',
-    borderRadius: 16,
-    marginBottom: 30,
-  },
-  trustTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: 'rgb(49, 58, 52)',
-    marginBottom: 15,
-  },
-  trustItems: {
     gap: 12,
   },
-  trustItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  trustText: {
-    fontSize: 16,
-    color: 'rgb(49, 58, 52)',
-  },
-  actionContainer: {
-    flexDirection: 'row',
-    gap: 15,
-  },
-  secondOpinionButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 15,
-    backgroundColor: 'rgb(132, 204, 22)',
-    borderRadius: 12,
-    gap: 8,
-  },
-  secondOpinionButtonText: {
-    fontSize: 16,
+  redFlagsTitle: {
+    fontSize: 20,
     fontWeight: '600',
-    color: 'white',
+    color: MedicalColors.neutral[900],
   },
-  saveButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 15,
-    backgroundColor: 'rgba(132, 204, 22, 0.1)',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgb(132, 204, 22)',
-    gap: 8,
-  },
-  saveButtonText: {
+  redFlagsDescription: {
     fontSize: 16,
-    fontWeight: '600',
-    color: 'rgb(132, 204, 22)',
-  },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: '#ffffff',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: 'rgb(49, 58, 52)',
-  },
-  modalContent: {
-    flex: 1,
-    paddingHorizontal: 20,
-  },
-  modalConditionTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: 'rgb(49, 58, 52)',
-    marginVertical: 20,
-  },
-  modalSection: {
-    marginBottom: 25,
-  },
-  modalSectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: 'rgb(49, 58, 52)',
-    marginBottom: 12,
-  },
-  modalSectionText: {
-    fontSize: 16,
-    color: 'rgb(100, 112, 103)',
+    color: MedicalColors.neutral[600],
+    marginBottom: 16,
     lineHeight: 24,
   },
-  symptomItem: {
+  redFlagItem: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 8,
     gap: 8,
   },
-  symptomText: {
+  redFlagText: {
+    fontSize: 14,
+    color: MedicalColors.neutral[700],
+    flex: 1,
+  },
+  urgentCallToAction: {
+    backgroundColor: MedicalColors.warning[50],
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 12,
+  },
+  urgentText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: MedicalColors.warning[700],
+    textAlign: 'center',
+  },
+  conditionsSection: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: MedicalColors.neutral[900],
+    marginBottom: 8,
+  },
+  sectionDescription: {
     fontSize: 16,
-    color: 'rgb(49, 58, 52)',
+    color: MedicalColors.neutral[600],
+    marginBottom: 20,
+    lineHeight: 24,
+  },
+  conditionCard: {
+    marginBottom: 16,
+  },
+  conditionHeader: {
+    marginBottom: 12,
+  },
+  conditionTitleContainer: {
+    gap: 12,
+  },
+  conditionName: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: MedicalColors.neutral[900],
+  },
+  conditionMeta: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  probabilityBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  probabilityText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  severityBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: MedicalColors.neutral[100],
+    borderRadius: 12,
+  },
+  severityText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: MedicalColors.neutral[700],
+  },
+  conditionDescription: {
+    fontSize: 16,
+    color: MedicalColors.neutral[600],
+    lineHeight: 24,
+    marginBottom: 16,
+  },
+  symptomsContainer: {
+    marginBottom: 16,
+  },
+  symptomsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: MedicalColors.neutral[900],
+    marginBottom: 8,
+  },
+  symptomsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  symptomChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: MedicalColors.primary[100],
+    borderRadius: 12,
+  },
+  symptomChipText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: MedicalColors.primary[700],
+  },
+  expandButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    gap: 4,
+  },
+  expandButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: MedicalColors.primary[600],
+  },
+  conditionDetails: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: MedicalColors.neutral[200],
+  },
+  recommendationsContainer: {
+    gap: 8,
+  },
+  recommendationsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: MedicalColors.neutral[900],
+    marginBottom: 8,
   },
   recommendationItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 8,
-  },
-  recommendationNumber: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: 'rgb(132, 204, 22)',
-    marginRight: 8,
-    marginTop: 2,
+    gap: 8,
+    marginBottom: 4,
   },
   recommendationText: {
-    fontSize: 16,
-    color: 'rgb(49, 58, 52)',
+    fontSize: 14,
+    color: MedicalColors.neutral[700],
     flex: 1,
+    lineHeight: 20,
   },
-  nextStepItem: {
+  recommendationsCard: {
+    marginBottom: 20,
+  },
+  recommendationsHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
-    gap: 8,
+    marginBottom: 20,
+    gap: 12,
   },
-  nextStepText: {
+  recommendationSection: {
+    marginBottom: 20,
+  },
+  recommendationSectionTitle: {
     fontSize: 16,
-    color: 'rgb(49, 58, 52)',
+    fontWeight: '600',
+    color: MedicalColors.neutral[900],
+    marginBottom: 12,
   },
-});
-
-export default AIAssessmentResultsScreen; 
+  nextStepsCard: {
+    marginBottom: 20,
+  },
+  nextStepsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    gap: 12,
+  },
+  nextStepsTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: MedicalColors.neutral[900],
+  },
+  nextStepItem: {
+    marginBottom: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: MedicalColors.neutral[200],
+  },
+  nextStepHeader: {
+    marginBottom: 8,
+  },
+  nextStepTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  nextStepTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: MedicalColors.neutral[900],
+  },
+  priorityBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  priorityText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  nextStepTimeframe: {
+    fontSize: 12,
+    color: MedicalColors.neutral[500],
+    fontWeight: '500',
+  },
+  nextStepDescription: {
+    fontSize: 14,
+    color: MedicalColors.neutral[600],
+    lineHeight: 20,
+  },
+  actionButtonsContainer: {
+    marginBottom: 20,
+    gap: 16,
+  },
+  primaryActionButton: {
+    shadowColor: MedicalColors.primary[500],
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  secondaryActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  secondaryActionButton: {
+    flex: 1,
+  },
+  disclaimer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    padding: 16,
+    backgroundColor: MedicalColors.warning[50],
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: MedicalColors.warning[200],
+  },
+  disclaimerText: {
+    fontSize: 12,
+    color: MedicalColors.warning[700],
+    flex: 1,
+    lineHeight: 18,
+  },
+}); 
