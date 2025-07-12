@@ -28,11 +28,24 @@ export default function RootLayout() {
         <Stack.Screen name="onboarding-step4" options={{ headerShown: false }} />
         <Stack.Screen name="onboarding-step5" options={{ headerShown: false }} />
         <Stack.Screen name="onboarding-step6" options={{ headerShown: false }} />
+        <Stack.Screen name="comprehensive-health-assessment" options={{ headerShown: false }} />
+        <Stack.Screen name="symptom-checker" options={{ headerShown: false }} />
+        <Stack.Screen name="consultation-flow" options={{ headerShown: false }} />
+        <Stack.Screen name="self-service-flow" options={{ headerShown: false }} />
+        <Stack.Screen name="assisted-help-flow" options={{ headerShown: false }} />
+        <Stack.Screen name="ai-assessment-results" options={{ headerShown: false }} />
+        <Stack.Screen name="medical-education" options={{ headerShown: false }} />
+        <Stack.Screen name="medical-protocol-flow" options={{ headerShown: false }} />
+        <Stack.Screen name="app-flow-guide" options={{ headerShown: false }} />
+        <Stack.Screen name="profile" options={{ headerShown: false }} />
+        <Stack.Screen name="medical-records" options={{ headerShown: false }} />
+        <Stack.Screen name="consultations" options={{ headerShown: false }} />
         <Stack.Screen name="signup" options={{ headerShown: false }} />
         <Stack.Screen name="signin" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="+not-found" />
         <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
+        <Stack.Screen name="verify-2fa" options={{ headerShown: false }} />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>

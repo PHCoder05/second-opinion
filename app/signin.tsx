@@ -7,7 +7,9 @@ import {
   TouchableOpacity,
   Text,
   Image,
-  ScrollView
+  ScrollView,
+  Alert,
+  Platform
 } from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
@@ -15,27 +17,59 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Link, useRouter } from 'expo-router';
+import { authService } from '../src/services/authService';
+import { profileService } from '../src/services/profileService';
 
 export default function SignInScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const styles = createStyles(colorScheme);
   const router = useRouter();
-  const [email, setEmail] = useState('hello@secondopinion.ai');
-  const [password, setPassword] = useState('password');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [passwordVisible, setPasswordVisible] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSignIn = () => {
-    // Bypass login for admin
-    if (email === 'admin@gmail.com' && password === 'admin123') {
-      router.push('/onboarding');
+  const handleSignIn = async () => {
+    if (!email || !password) {
+      Alert.alert('Error', 'Please enter both email and password.');
       return;
     }
-    // Basic validation
-    if (email && password) {
-      router.push('/onboarding');
-    } else {
-      // You can add some error handling here
-      alert('Please enter email and password.');
+
+    setIsLoading(true);
+    try {
+      const { data, error } = await authService.signIn(email, password);
+      
+      if (error) {
+        Alert.alert('Error', error.message);
+        return;
+      }
+
+      if (data?.user) {
+        // Start a new session for tracking
+        await profileService.startSession(data.user.id, 'Mobile App');
+        
+        // Log the login activity
+        await profileService.logActivity(data.user.id, 'login', {
+          login_method: 'email_password',
+          device: Platform.OS
+        });
+        
+        // Check if user has completed onboarding
+        const { data: profile } = await profileService.getUserProfile(data.user.id);
+        
+        if (profile && profile.first_name) {
+          // User has profile, go directly to main app
+          router.replace('/(tabs)');
+          Alert.alert('Welcome Back!', 'You have been signed in successfully. Your session will remain active until you manually log out.');
+        } else {
+          // New user or incomplete profile, go to onboarding
+          router.push('/onboarding');
+        }
+      }
+    } catch (error) {
+      Alert.alert('Error', 'An unexpected error occurred. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -68,11 +102,12 @@ export default function SignInScreen() {
                   <TextInput
                     value={email}
                     onChangeText={setEmail}
-                    placeholder="hello@secondopinion.ai"
+                    placeholder="Enter your email"
                     style={[styles.input, { color: '#000' }]}
                     keyboardType="email-address"
                     autoCapitalize="none"
                     placeholderTextColor={Colors[colorScheme].gray}
+                    editable={!isLoading}
                   />
                 </View>
               </View>
@@ -84,32 +119,37 @@ export default function SignInScreen() {
                   <TextInput
                     value={password}
                     onChangeText={setPassword}
-                    placeholder="Your password"
+                    placeholder="Enter your password"
                     style={[styles.input, { color: '#000' }]}
                     secureTextEntry={!passwordVisible}
                     placeholderTextColor={Colors[colorScheme].gray}
+                    editable={!isLoading}
                   />
-                  <TouchableOpacity onPress={() => setPasswordVisible(!passwordVisible)}>
+                  <TouchableOpacity onPress={() => setPasswordVisible(!passwordVisible)} disabled={isLoading}>
                     <IconSymbol name={passwordVisible ? "eye" : "eye-off"} size={24} color={Colors[colorScheme].gray} />
                   </TouchableOpacity>
                 </View>
               </View>
 
-              <TouchableOpacity style={styles.button} onPress={handleSignIn}>
-                <Text style={styles.buttonText}>Sign In</Text>
-                <IconSymbol name="arrow.right" size={24} color="#FFFFFF" />
+              <TouchableOpacity 
+                style={[styles.button, isLoading && styles.buttonDisabled]} 
+                onPress={handleSignIn}
+                disabled={isLoading}
+              >
+                <Text style={styles.buttonText}>{isLoading ? 'Signing In...' : 'Sign In'}</Text>
+                {!isLoading && <IconSymbol name="arrow.right" size={24} color="#FFFFFF" />}
               </TouchableOpacity>
             </View>
             
             <View style={styles.socialContainer}>
                 <View style={styles.socialButtons}>
-                    <TouchableOpacity style={styles.socialButton}>
+                    <TouchableOpacity style={styles.socialButton} disabled={isLoading}>
                         <IconSymbol name="facebook" size={24} color={Colors.light.text} />
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.socialButton}>
+                    <TouchableOpacity style={styles.socialButton} disabled={isLoading}>
                         <IconSymbol name="google" size={24} color={Colors.light.text} />
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.socialButton}>
+                    <TouchableOpacity style={styles.socialButton} disabled={isLoading}>
                         <IconSymbol name="apple" size={24} color={Colors.light.text} />
                     </TouchableOpacity>
                 </View>
@@ -118,11 +158,15 @@ export default function SignInScreen() {
 
           <View style={styles.footer}>
             <ThemedText style={{ color: '#000' }}>Don't have an account? </ThemedText>
-            <Link href="/signup">
+            <Link href="/signup" disabled={isLoading}>
               <ThemedText style={[styles.link, { color: '#000' }]}>Sign Up</ThemedText>
             </Link>
           </View>
-          <TouchableOpacity onPress={() => router.push('/forgot-password')} style={{ marginTop: 16, alignSelf: 'center' }}>
+          <TouchableOpacity 
+            onPress={() => router.push('/forgot-password')} 
+            style={{ marginTop: 16, alignSelf: 'center' }}
+            disabled={isLoading}
+          >
             <Text style={{ color: '#000', textAlign: 'center', fontSize: 16, textDecorationLine: 'underline' }}>
               Forgot your password?
             </Text>
@@ -268,5 +312,8 @@ const createStyles = (colorScheme: 'light' | 'dark') =>
     centeredWrapper: {
       flex: 1,
       justifyContent: 'center',
+    },
+    buttonDisabled: {
+      opacity: 0.7,
     },
   }); 

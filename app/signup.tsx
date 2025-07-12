@@ -16,6 +16,7 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Link, useRouter } from 'expo-router';
+import { authService } from '../src/services/authService';
 
 export default function SignUpScreen() {
   const colorScheme = useColorScheme() ?? 'light';
@@ -27,8 +28,9 @@ export default function SignUpScreen() {
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [confirmPasswordVisible, setConfirmPasswordVisible] = useState(false);
   const [passwordError, setPasswordError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSignUp = () => {
+  const handleSignUp = async () => {
     let error = '';
     if (!password) {
       error = 'Password is required.';
@@ -41,8 +43,26 @@ export default function SignUpScreen() {
     }
     setPasswordError(error);
     if (error) return;
-    // Navigate to onboarding for now
-    router.push('/onboarding');
+    if (!email) {
+      Alert.alert('Error', 'Email is required.');
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const { data, error } = await authService.signUp(email, password);
+      if (error) {
+        Alert.alert('Error', error.message);
+        return;
+      }
+      if (data?.user) {
+        Alert.alert('Success', 'Account created! Please check your email to verify your account.');
+        router.push('/signin');
+      }
+    } catch (e) {
+      Alert.alert('Error', 'An unexpected error occurred. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -88,7 +108,8 @@ export default function SignUpScreen() {
                     style={[styles.input, { color: '#000' }]}
                     keyboardType="email-address"
                     autoCapitalize="none"
-                    placeholderTextColor={Colors[colorScheme].gray}
+                    placeholderTextColor={Colors[colorScheme].icon}
+                    editable={!isLoading}
                   />
                 </View>
               </View>
@@ -107,14 +128,17 @@ export default function SignUpScreen() {
                     placeholder="Enter your password"
                     style={[styles.input, { color: '#000' }]}
                     secureTextEntry={!passwordVisible}
-                    placeholderTextColor={Colors[colorScheme].gray}
+                    placeholderTextColor={Colors[colorScheme].icon}
+                    editable={!isLoading}
                   />
                   <TouchableOpacity
-                    onPress={() => setPasswordVisible(!passwordVisible)}>
+                    onPress={() => setPasswordVisible(!passwordVisible)}
+                    disabled={isLoading}
+                  >
                     <IconSymbol
                       name={passwordVisible ? 'eye' : 'eye-off'}
                       size={24}
-                      color={Colors[colorScheme].gray}
+                      color={Colors[colorScheme].icon}
                     />
                   </TouchableOpacity>
                 </View>
@@ -141,31 +165,34 @@ export default function SignUpScreen() {
                     placeholder="Confirm your password"
                     style={[styles.input, { color: '#000' }]}
                     secureTextEntry={!confirmPasswordVisible}
-                    placeholderTextColor={Colors[colorScheme].gray}
+                    placeholderTextColor={Colors[colorScheme].icon}
+                    editable={!isLoading}
                   />
                   <TouchableOpacity
                     onPress={() =>
                       setConfirmPasswordVisible(!confirmPasswordVisible)
-                    }>
+                    }
+                    disabled={isLoading}
+                  >
                     <IconSymbol
                       name={confirmPasswordVisible ? 'eye' : 'eye-off'}
                       size={24}
-                      color={Colors[colorScheme].gray}
+                      color={Colors[colorScheme].icon}
                     />
                   </TouchableOpacity>
                 </View>
               </View>
 
-              <TouchableOpacity style={styles.button} onPress={handleSignUp}>
-                <Text style={styles.buttonText}>Sign Up</Text>
-                <IconSymbol name="arrow.right" size={24} color="#FFFFFF" />
+              <TouchableOpacity style={[styles.button, isLoading && styles.buttonDisabled]} onPress={handleSignUp} disabled={isLoading}>
+                <Text style={styles.buttonText}>{isLoading ? 'Signing Up...' : 'Sign Up'}</Text>
+                {!isLoading && <IconSymbol name="arrow.right" size={24} color="#FFFFFF" />}
               </TouchableOpacity>
             </View>
           </View>
 
           <View style={styles.footer}>
             <ThemedText style={{ color: '#000' }}>Already have an account? </ThemedText>
-            <Link href="/signin">
+            <Link href="/signin" disabled={isLoading}>
               <ThemedText style={[styles.link, { color: '#000' }]}>Sign In</ThemedText>
             </Link>
           </View>
@@ -301,5 +328,8 @@ const createStyles = (colorScheme: 'light' | 'dark') =>
     centeredWrapper: {
       flex: 1,
       justifyContent: 'center',
+    },
+    buttonDisabled: {
+      opacity: 0.7,
     },
   }); 

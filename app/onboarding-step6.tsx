@@ -12,7 +12,7 @@ const OnboardingScreenStep6 = () => {
       progress="100%"
       title="EHR Access at your fingertips, anywhere."
       subtitle="Empower your health data anywhere."
-      onNext={() => router.push('/(tabs)')}
+      onNext={() => router.push('/comprehensive-health-assessment')}
       onBack={() => router.back()}
       onSkip={() => router.push('/(tabs)')}
     >
