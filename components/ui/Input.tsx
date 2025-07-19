@@ -1,241 +1,479 @@
-import React, { useState } from 'react';
-import { View, TextInput, Text, StyleSheet, ViewStyle, TextInputProps, TouchableOpacity } from 'react-native';
-import { MedicalColors } from '@/constants/Colors';
+import { BorderRadius, ComponentSizes, FunctionalColors, MedicalColors, Spacing, Typography } from '@/constants/Colors';
+import React, { useRef, useState } from 'react';
+import { Animated, StyleSheet, Text, TextInput, TextInputProps, TextStyle, TouchableOpacity, View, ViewStyle } from 'react-native';
 import { IconSymbol } from './IconSymbol';
 
-interface InputProps extends TextInputProps {
+interface InputProps extends Omit<TextInputProps, 'style'> {
   label?: string;
-  placeholder?: string;
-  value?: string;
-  onChangeText?: (text: string) => void;
+  required?: boolean;
+  error?: string;
+  hint?: string;
   leftIcon?: string;
   rightIcon?: string;
-  onRightIconPress?: () => void;
-  error?: string;
-  disabled?: boolean;
-  required?: boolean;
-  variant?: 'default' | 'filled' | 'outlined';
+  variant?: 'default' | 'medical' | 'search' | 'password';
   size?: 'small' | 'medium' | 'large';
+  disabled?: boolean;
+  loading?: boolean;
+  multiline?: boolean;
+  numberOfLines?: number;
   style?: ViewStyle;
-  secureTextEntry?: boolean;
+  inputStyle?: TextStyle;
+  onRightIconPress?: () => void;
+  onLeftIconPress?: () => void;
+  testID?: string;
 }
 
 export const Input: React.FC<InputProps> = ({
   label,
-  placeholder,
-  value,
-  onChangeText,
+  required = false,
+  error,
+  hint,
   leftIcon,
   rightIcon,
-  onRightIconPress,
-  error,
-  disabled = false,
-  required = false,
   variant = 'default',
   size = 'medium',
+  disabled = false,
+  loading = false,
+  multiline = false,
+  numberOfLines = 1,
   style,
-  secureTextEntry = false,
+  inputStyle,
+  onRightIconPress,
+  onLeftIconPress,
+  testID,
+  value,
+  onFocus,
+  onBlur,
   ...props
 }) => {
   const [isFocused, setIsFocused] = useState(false);
-  const [isSecure, setIsSecure] = useState(secureTextEntry);
+  const [isSecure, setIsSecure] = useState(props.secureTextEntry || false);
+  const inputRef = useRef<TextInput>(null);
+  const focusAnimation = useRef(new Animated.Value(0)).current;
 
-  const getInputContainerStyle = () => {
+  const handleFocus = (e: any) => {
+    setIsFocused(true);
+    Animated.timing(focusAnimation, {
+      toValue: 1,
+      duration: 200,
+      useNativeDriver: false,
+    }).start();
+    onFocus?.(e);
+  };
+
+  const handleBlur = (e: any) => {
+    setIsFocused(false);
+    Animated.timing(focusAnimation, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: false,
+    }).start();
+    onBlur?.(e);
+  };
+
+  const getContainerStyle = (): ViewStyle[] => {
     const baseStyle = [
-      styles.inputContainer,
+      styles.container,
       styles[size],
-      styles[variant],
-      isFocused && styles.focused,
-      error && styles.error,
-      disabled && styles.disabled,
       style,
     ];
+
+    if (variant === 'medical') {
+      baseStyle.push(styles.medicalContainer);
+    }
+
+    if (variant === 'search') {
+      baseStyle.push(styles.searchContainer);
+    }
+
     return baseStyle;
   };
 
-  const getInputStyle = () => {
-    return [
+  const getInputContainerStyle = (): ViewStyle[] => {
+    const baseStyle = [
+      styles.inputContainer,
+      styles[`${size}Container`],
+    ];
+
+    if (isFocused) {
+      baseStyle.push(styles.focused);
+    }
+
+    if (error) {
+      baseStyle.push(styles.error);
+    }
+
+    if (disabled) {
+      baseStyle.push(styles.disabled);
+    }
+
+    switch (variant) {
+      case 'medical':
+        baseStyle.push(styles.medicalInput);
+        break;
+      case 'search':
+        baseStyle.push(styles.searchInput);
+        break;
+      case 'password':
+        baseStyle.push(styles.passwordInput);
+        break;
+    }
+
+    return baseStyle;
+  };
+
+  const getInputStyle = (): TextStyle[] => {
+    const baseStyle = [
       styles.input,
       styles[`${size}Text`],
-      leftIcon && styles.inputWithLeftIcon,
-      (rightIcon || secureTextEntry) && styles.inputWithRightIcon,
+      inputStyle,
     ];
-  };
 
-  const handleRightIconPress = () => {
-    if (secureTextEntry) {
-      setIsSecure(!isSecure);
-    } else if (onRightIconPress) {
-      onRightIconPress();
+    if (disabled) {
+      baseStyle.push(styles.disabledText);
     }
-  };
 
-  const getRightIconName = () => {
-    if (secureTextEntry) {
-      return isSecure ? 'eye.slash' : 'eye';
+    if (multiline) {
+      baseStyle.push(styles.multilineInput);
     }
-    return rightIcon || '';
+
+    return baseStyle;
   };
 
-  const getIconColor = () => {
-    if (error) return MedicalColors.accent[500];
+  const getIconColor = (): string => {
+    if (disabled) return FunctionalColors.textDisabled;
+    if (error) return MedicalColors.error[500];
     if (isFocused) return MedicalColors.primary[500];
-    return MedicalColors.neutral[400];
+    return FunctionalColors.textSecondary;
   };
 
-  return (
-    <View style={styles.container}>
-      {label && (
-        <Text style={[styles.label, error && styles.labelError]}>
+  const getIconSize = (): number => {
+    switch (size) {
+      case 'small':
+        return ComponentSizes.iconSizes.sm;
+      case 'large':
+        return ComponentSizes.iconSizes.md;
+      default:
+        return ComponentSizes.iconSizes.sm;
+    }
+  };
+
+  const toggleSecureEntry = () => {
+    setIsSecure(!isSecure);
+  };
+
+  const renderPasswordToggle = () => {
+    if (variant !== 'password' && !props.secureTextEntry) return null;
+    
+    return (
+      <TouchableOpacity
+        onPress={toggleSecureEntry}
+        style={styles.iconButton}
+        accessibilityRole="button"
+        accessibilityLabel={isSecure ? "Show password" : "Hide password"}
+      >
+        <IconSymbol
+          name={isSecure ? "eye.slash.fill" : "eye.fill"}
+          size={getIconSize()}
+          color={getIconColor()}
+        />
+      </TouchableOpacity>
+    );
+  };
+
+  const renderLabel = () => {
+    if (!label) return null;
+
+    const labelColor = error ? MedicalColors.error[500] : 
+                     isFocused ? MedicalColors.primary[500] : 
+                     FunctionalColors.textSecondary;
+
+    return (
+      <View style={styles.labelContainer}>
+        <Text style={[styles.label, { color: labelColor }]}>
           {label}
           {required && <Text style={styles.required}> *</Text>}
         </Text>
-      )}
+      </View>
+    );
+  };
+
+  const renderHint = () => {
+    if (!hint && !error) return null;
+
+    const text = error || hint;
+    const textColor = error ? MedicalColors.error[500] : FunctionalColors.textSecondary;
+
+    return (
+      <Text 
+        style={[styles.hint, { color: textColor }]}
+        accessibilityRole="text"
+        accessibilityLabel={error ? `Error: ${text}` : `Hint: ${text}`}
+      >
+        {text}
+      </Text>
+    );
+  };
+
+  return (
+    <View style={StyleSheet.flatten(getContainerStyle())} testID={testID}>
+      {renderLabel()}
       
-      <View style={getInputContainerStyle()}>
+      <Animated.View
+        style={[
+          StyleSheet.flatten(getInputContainerStyle()),
+          {
+            borderColor: focusAnimation.interpolate({
+              inputRange: [0, 1],
+              outputRange: [
+                error ? MedicalColors.error[500] : FunctionalColors.border,
+                error ? MedicalColors.error[500] : MedicalColors.primary[500]
+              ],
+            }),
+          },
+        ]}
+      >
         {leftIcon && (
-          <IconSymbol
-            name={leftIcon}
-            size={20}
-            color={getIconColor()}
-            style={styles.leftIcon}
-          />
-        )}
-        
-        <TextInput
-          style={getInputStyle()}
-          placeholder={placeholder}
-          value={value}
-          onChangeText={onChangeText}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
-          secureTextEntry={isSecure}
-          editable={!disabled}
-          placeholderTextColor={MedicalColors.neutral[400]}
-          {...props}
-        />
-        
-        {(rightIcon || secureTextEntry) && (
           <TouchableOpacity
-            onPress={handleRightIconPress}
-            style={styles.rightIcon}
-            disabled={disabled}
+            onPress={onLeftIconPress}
+            style={styles.iconButton}
+            disabled={!onLeftIconPress}
+            accessibilityRole={onLeftIconPress ? "button" : undefined}
           >
             <IconSymbol
-              name={getRightIconName()}
-              size={20}
+              name={leftIcon}
+              size={getIconSize()}
               color={getIconColor()}
             />
           </TouchableOpacity>
         )}
-      </View>
-      
-      {error && (
-        <Text style={styles.errorText}>{error}</Text>
-      )}
+
+        <TextInput
+          ref={inputRef}
+          style={StyleSheet.flatten(getInputStyle())}
+          value={value}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          editable={!disabled && !loading}
+          placeholderTextColor={FunctionalColors.inputPlaceholder}
+          selectionColor={MedicalColors.primary[500]}
+          multiline={multiline}
+          numberOfLines={multiline ? numberOfLines : 1}
+          secureTextEntry={isSecure}
+          accessibilityLabel={label}
+          accessibilityHint={hint}
+          accessibilityState={{
+            disabled: disabled,
+            busy: loading,
+          }}
+          {...props}
+        />
+
+        {loading && (
+          <View style={styles.iconButton}>
+            <IconSymbol
+              name="circle.dashed"
+              size={getIconSize()}
+              color={getIconColor()}
+            />
+          </View>
+        )}
+
+        {(variant === 'password' || props.secureTextEntry) && renderPasswordToggle()}
+
+        {rightIcon && !loading && !(variant === 'password' || props.secureTextEntry) && (
+          <TouchableOpacity
+            onPress={onRightIconPress}
+            style={styles.iconButton}
+            disabled={!onRightIconPress}
+            accessibilityRole={onRightIconPress ? "button" : undefined}
+          >
+            <IconSymbol
+              name={rightIcon}
+              size={getIconSize()}
+              color={getIconColor()}
+            />
+          </TouchableOpacity>
+        )}
+      </Animated.View>
+
+      {renderHint()}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 4,
+    marginBottom: Spacing.md,
   },
+  
+  small: {
+    // Small container styles
+  },
+  
+  medium: {
+    // Medium container styles
+  },
+  
+  large: {
+    // Large container styles
+  },
+  
+  medicalContainer: {
+    marginBottom: Spacing.lg,
+  },
+  
+  searchContainer: {
+    marginBottom: Spacing.sm,
+  },
+  
+  labelContainer: {
+    marginBottom: Spacing.xs,
+  },
+  
   label: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: MedicalColors.neutral[700],
-    marginBottom: 8,
+    fontSize: Typography.sizes.caption,
+    fontWeight: Typography.weights.medium,
+    fontFamily: Typography.fonts.primary,
+    lineHeight: Typography.sizes.caption * Typography.lineHeights.normal,
   },
-  labelError: {
-    color: MedicalColors.accent[500],
-  },
+  
   required: {
-    color: MedicalColors.accent[500],
+    color: MedicalColors.error[500],
   },
+  
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 12,
+    backgroundColor: FunctionalColors.inputBackground,
     borderWidth: 1,
-    borderColor: MedicalColors.neutral[200],
-    backgroundColor: '#FFFFFF',
+    borderColor: FunctionalColors.inputBorder,
+    borderRadius: BorderRadius.sm, // 4px from design system
+    paddingHorizontal: Spacing.md,
+    minHeight: ComponentSizes.touchTargets.minimum, // 48px minimum from JSON
   },
-  // Variants
-  default: {
-    backgroundColor: '#FFFFFF',
+  
+  smallContainer: {
+    minHeight: 40,
+    paddingHorizontal: Spacing.sm,
   },
-  filled: {
-    backgroundColor: MedicalColors.neutral[50],
-    borderColor: 'transparent',
+  
+  mediumContainer: {
+    minHeight: ComponentSizes.touchTargets.minimum, // 48px
+    paddingHorizontal: Spacing.md,
   },
-  outlined: {
-    backgroundColor: 'transparent',
-    borderWidth: 2,
+  
+  largeContainer: {
+    minHeight: ComponentSizes.touchTargets.recommended, // 56px
+    paddingHorizontal: Spacing.lg,
   },
-  // Sizes
-  small: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    minHeight: 36,
-  },
-  medium: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    minHeight: 44,
-  },
-  large: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    minHeight: 52,
-  },
-  // States
+  
   focused: {
-    borderColor: MedicalColors.primary[500],
+    borderColor: FunctionalColors.inputBorderFocus,
     shadowColor: MedicalColors.primary[500],
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 2,
   },
+  
   error: {
-    borderColor: MedicalColors.accent[500],
+    borderColor: FunctionalColors.inputBorderError,
+    backgroundColor: MedicalColors.error[50],
   },
+  
   disabled: {
-    backgroundColor: MedicalColors.neutral[100],
-    opacity: 0.6,
+    backgroundColor: FunctionalColors.disabled,
+    borderColor: FunctionalColors.disabled,
   },
+  
+  medicalInput: {
+    borderColor: MedicalColors.primary[200],
+    backgroundColor: MedicalColors.primary[50],
+  },
+  
+  searchInput: {
+    borderRadius: BorderRadius.lg, // Rounded search input
+    backgroundColor: MedicalColors.secondary[50],
+  },
+  
+  passwordInput: {
+    // Password-specific styles
+  },
+  
   input: {
     flex: 1,
-    color: MedicalColors.neutral[900],
-    fontSize: 16,
+    fontSize: Typography.sizes.body,
+    fontFamily: Typography.fonts.primary,
+    color: FunctionalColors.text,
+    paddingVertical: Spacing.sm,
+    includeFontPadding: false,
   },
-  inputWithLeftIcon: {
-    marginLeft: 8,
-  },
-  inputWithRightIcon: {
-    marginRight: 8,
-  },
-  // Text sizes
+  
   smallText: {
-    fontSize: 14,
+    fontSize: Typography.sizes.caption,
   },
+  
   mediumText: {
-    fontSize: 16,
+    fontSize: Typography.sizes.body,
   },
+  
   largeText: {
-    fontSize: 18,
+    fontSize: Typography.sizes.subheading,
   },
-  leftIcon: {
-    marginRight: 4,
+  
+  multilineInput: {
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.md,
+    textAlignVertical: 'top',
   },
-  rightIcon: {
-    marginLeft: 4,
-    padding: 4,
+  
+  disabledText: {
+    color: FunctionalColors.textDisabled,
   },
-  errorText: {
-    fontSize: 14,
-    color: MedicalColors.accent[500],
-    marginTop: 4,
+  
+  iconButton: {
+    padding: Spacing.xs,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-}); 
+  
+  hint: {
+    fontSize: Typography.sizes.small,
+    fontFamily: Typography.fonts.primary,
+    marginTop: Spacing.xs,
+    marginLeft: Spacing.xs,
+  },
+});
+
+// Specialized input components for medical contexts
+export const MedicalInput: React.FC<Omit<InputProps, 'variant'>> = (props) => (
+  <Input variant="medical" {...props} />
+);
+
+export const SearchInput: React.FC<Omit<InputProps, 'variant'>> = (props) => (
+  <Input variant="search" leftIcon="magnifyingglass" {...props} />
+);
+
+export const PasswordInput: React.FC<Omit<InputProps, 'variant'>> = (props) => (
+  <Input variant="password" secureTextEntry {...props} />
+);
+
+// Medical data input components
+export const VitalInput: React.FC<Omit<InputProps, 'variant' | 'keyboardType'>> = (props) => (
+  <Input variant="medical" keyboardType="numeric" {...props} />
+);
+
+export const DateInput: React.FC<Omit<InputProps, 'variant'>> = (props) => (
+  <Input variant="medical" rightIcon="calendar" {...props} />
+);
+
+export const PhoneInput: React.FC<Omit<InputProps, 'variant' | 'keyboardType'>> = (props) => (
+  <Input variant="default" keyboardType="phone-pad" leftIcon="phone.fill" {...props} />
+);
+
+export const EmailInput: React.FC<Omit<InputProps, 'variant' | 'keyboardType'>> = (props) => (
+  <Input variant="default" keyboardType="email-address" leftIcon="envelope.fill" {...props} />
+);
+
+export default Input; 

@@ -1,19 +1,19 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-    SafeAreaView,
-    TouchableOpacity,
-  Modal,
-  Dimensions,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import { IconSymbol, Card, Button } from '@/components/ui';
+import { Button, Card, IconSymbol } from '@/components/ui';
 import { MedicalColors } from '@/constants/Colors';
 import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import {
+    Dimensions,
+    Modal,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 import Animated, { FadeIn, FadeInDown, FadeInUp } from 'react-native-reanimated';
 
 // Educational content categories
@@ -21,7 +21,7 @@ const EDUCATION_CATEGORIES = [
   {
     id: 'understanding_diagnosis',
     title: 'Understanding Your Diagnosis',
-    icon: 'brain.head.profile',
+    icon: 'psychology',
     color: MedicalColors.primary[600],
     description: 'Learn about your condition in simple terms',
     topics: [
@@ -35,7 +35,7 @@ const EDUCATION_CATEGORIES = [
   {
     id: 'treatment_options',
     title: 'Treatment Options',
-    icon: 'pills',
+    icon: 'medication',
     color: MedicalColors.secondary[600],
     description: 'Comprehensive overview of available treatments',
     topics: [
@@ -77,7 +77,7 @@ const EDUCATION_CATEGORIES = [
   {
     id: 'medication_guide',
     title: 'Medication Guide',
-    icon: 'cross.case',
+    icon: 'medical_services',
     color: MedicalColors.warning[600],
     description: 'Everything you need to know about your medications',
     topics: [
@@ -166,7 +166,7 @@ const SAMPLE_CONTENT = {
 
 const { width: screenWidth } = Dimensions.get('window');
 
-export default function MedicalEducation() {
+function MedicalEducation() {
   const router = useRouter();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showContentModal, setShowContentModal] = useState(false);
@@ -194,12 +194,12 @@ export default function MedicalEducation() {
       
       <View style={styles.trustIndicators}>
         <View style={styles.trustIndicator}>
-          <IconSymbol name="checkmark.seal" size={24} color={MedicalColors.success[600]} />
+          <IconSymbol name="verified" size={24} color={MedicalColors.success[600]} />
           <Text style={styles.trustIndicatorText}>Evidence-Based</Text>
         </View>
         
         <View style={styles.trustIndicator}>
-          <IconSymbol name="doc.text.magnifyingglass" size={24} color={MedicalColors.info[600]} />
+          <IconSymbol name="search" size={24} color={MedicalColors.info[600]} />
           <Text style={styles.trustIndicatorText}>Peer-Reviewed</Text>
         </View>
         
@@ -249,7 +249,7 @@ export default function MedicalEducation() {
   const renderConditionOverview = () => (
     <Card variant="default" padding="large" style={styles.conditionCard}>
       <View style={styles.conditionHeader}>
-        <IconSymbol name="heart.text.square" size={32} color={MedicalColors.primary[600]} />
+        <IconSymbol name="favorite" size={32} color={MedicalColors.primary[600]} />
         <Text style={styles.conditionTitle}>Your Condition Explained</Text>
           </View>
       
@@ -822,3 +822,10 @@ const styles = StyleSheet.create({
     borderTopColor: MedicalColors.neutral[200],
   },
 });
+
+// Default export for Expo Router
+export default function MedicalEducationScreen() {
+  return (
+      <MedicalEducation />
+  );
+}

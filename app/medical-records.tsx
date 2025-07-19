@@ -1,21 +1,21 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  Alert,
-  SafeAreaView,
-  Modal,
-  FlatList,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { IconSymbol } from '@/components/ui/IconSymbol';
+import { IconSymbol } from '@/components/ui';
 import { authService } from '@/src/services/authService';
-import { medicalRecordsService, MedicalRecord } from '@/src/services/medicalRecordsService';
+import { MedicalRecord, medicalRecordsService } from '@/src/services/medicalRecordsService';
 import * as Haptics from 'expo-haptics';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import {
+    Alert,
+    FlatList,
+    Modal,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 
 interface FilterOptions {
@@ -172,13 +172,13 @@ export default function MedicalRecordsScreen() {
 
   const getTypeIcon = (type: string) => {
     switch (type) {
-      case 'lab_result': return 'flask.fill';
-      case 'imaging': return 'camera.fill';
-      case 'prescription': return 'pills.fill';
+              case 'lab_result': return 'science';
+              case 'imaging': return 'photo_camera';
+      case 'prescription': return 'medication';
       case 'diagnosis': return 'stethoscope';
-      case 'treatment_plan': return 'list.clipboard.fill';
-      case 'consultation_note': return 'doc.text.fill';
-      default: return 'doc.fill';
+              case 'treatment_plan': return 'assignment';
+      case 'consultation_note': return 'description';
+              default: return 'description';
     }
   };
 
@@ -326,7 +326,7 @@ export default function MedicalRecordsScreen() {
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <IconSymbol name="doc.text" size={64} color="rgb(100, 112, 103)" />
+            <IconSymbol name="description" size={64} color="rgb(100, 112, 103)" />
             <Text style={styles.emptyTitle}>No Medical Records</Text>
             <Text style={styles.emptySubtitle}>
               Add your first medical record to get started with second opinion consultations

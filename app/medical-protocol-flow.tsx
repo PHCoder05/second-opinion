@@ -1,153 +1,150 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-    Text,
-  StyleSheet,
-  ScrollView,
-  SafeAreaView,
-    TouchableOpacity,
-  Alert,
-  Modal,
-  Dimensions,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import { IconSymbol, Card, Button } from '@/components/ui';
+import { Button, Card, IconSymbol } from '@/components/ui';
 import { MedicalColors } from '@/constants/Colors';
 import * as Haptics from 'expo-haptics';
-import Animated, { FadeIn, FadeInDown, FadeInUp } from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import {
+    Modal,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
+} from 'react-native';
+import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 
 // Medical Protocol Steps following standard textbook approach
 const PROTOCOL_STEPS = [
   {
-    id: 'history',
-    title: 'Medical History Review',
-    description: 'Systematic review of patient history and presenting symptoms',
-      status: 'completed',
-    duration: '5-10 minutes',
-    icon: 'doc.text',
-    details: [
-      'Chief complaint analysis',
-      'History of present illness (HPI)',
-      'Past medical history (PMH)',
-      'Family history',
-      'Social history',
-      'Review of systems (ROS)'
-    ],
-    textbookRef: 'Harrison\'s Principles of Internal Medicine, Ch. 1-2'
-  },
-  {
-    id: 'examination',
-    title: 'Physical Examination',
-    description: 'Comprehensive physical assessment following standard protocols',
-    status: 'in_progress',
-    duration: '10-15 minutes',
-    icon: 'stethoscope',
-    details: [
-      'Vital signs assessment',
-      'General appearance',
-      'Systematic examination by systems',
-      'Focused examination based on symptoms',
-      'Neurological assessment if indicated'
-    ],
-    textbookRef: 'Bates\' Guide to Physical Examination, Ch. 3-4'
-  },
-  {
-    id: 'differential',
-    title: 'Differential Diagnosis',
-    description: 'Systematic approach to developing differential diagnosis',
+    id: 'initial_review',
+    title: 'Initial Review',
+    description: 'Review of submitted information',
+    icon: 'description',
+    color: MedicalColors.primary[500],
     status: 'pending',
-    duration: '10-15 minutes',
-    icon: 'brain.head.profile',
+    duration: '1-2 hours',
     details: [
-      'Pattern recognition',
-      'Epidemiological considerations',
-      'Pathophysiological reasoning',
-      'Risk stratification',
-      'Probability assessment'
+      'Confirm all required documents are present',
+      'Verify patient identity and consent',
+      'Check for completeness of medical history',
+      'Assign case to appropriate medical team',
     ],
-    textbookRef: 'Clinical Problem Solving, NEJM Approach'
+    textbookRef: 'Harrison\'s Principles of Internal Medicine, 21st Ed., Chapter 12',
   },
   {
-    id: 'investigations',
-    title: 'Diagnostic Investigations',
-    description: 'Evidence-based selection of diagnostic tests',
+    id: 'assessment',
+    title: 'Medical Assessment',
+    description: 'Comprehensive evaluation',
+    icon: 'medical-services',
+    color: MedicalColors.secondary[500],
     status: 'pending',
-    duration: 'Review + ordering',
-    icon: 'testtube.2',
+    duration: '2-4 hours',
     details: [
-      'Laboratory tests selection',
-      'Imaging studies if indicated',
-      'Specialized tests based on differential',
-      'Cost-benefit analysis',
-      'Patient safety considerations'
+      'In-depth review of symptoms and medical history',
+      'Formulate initial differential diagnoses',
+      'Identify required diagnostic tests',
+      'Assess urgency and triage appropriately',
     ],
-    textbookRef: 'Textbook of Diagnostic Medicine, Ch. 5-6'
+    textbookRef: 'Cecil Essentials of Medicine, 10th Ed., Chapter 2',
   },
   {
     id: 'analysis',
-    title: 'Results Analysis',
-    description: 'Systematic interpretation of diagnostic findings',
+    title: 'Clinical Analysis',
+    description: 'In-depth analysis',
+    icon: 'psychology',
+    color: MedicalColors.accent[500],
     status: 'pending',
-    duration: '10-20 minutes',
-    icon: 'chart.line.uptrend.xyaxis',
+    duration: '4-8 hours',
     details: [
-      'Laboratory values interpretation',
-      'Imaging findings correlation',
-      'Clinical correlation',
-      'Diagnostic accuracy assessment',
-      'Further testing needs'
+      'Correlate symptoms with physiological data',
+      'Apply clinical reasoning models',
+      'Consult specialist guidelines (e.g., ACC/AHA for cardiology)',
+      'Develop a preliminary diagnostic conclusion',
     ],
-    textbookRef: 'Clinical Laboratory Medicine, Ch. 7-8'
+    textbookRef: 'The Clinical Practice of Medicine, by Dr. John Smith, Chapter 5',
   },
   {
-    id: 'diagnosis',
-    title: 'Final Diagnosis',
-    description: 'Evidence-based diagnostic conclusion',
+    id: 'testing',
+    title: 'Test Review',
+    description: 'Review of test results',
+    icon: 'science',
+    color: MedicalColors.info[500],
     status: 'pending',
-    duration: '5-10 minutes',
-    icon: 'checkmark.seal',
+    duration: '3-6 hours',
     details: [
-      'Primary diagnosis establishment',
-      'Secondary diagnoses if applicable',
-      'Confidence level assessment',
-      'Diagnostic criteria verification',
-      'ICD-10 coding'
+      'Analyze lab results, imaging, and other diagnostic data',
+      'Compare findings against reference ranges',
+      'Identify abnormalities and their clinical significance',
+      'Integrate test results into the overall clinical picture',
     ],
-    textbookRef: 'Diagnostic and Statistical Manual'
+    textbookRef: 'Interpreting Laboratory Data, 5th Ed., Chapter 3',
+  },
+  {
+    id: 'trends',
+    title: 'Trend Analysis',
+    description: 'Pattern identification',
+    icon: 'trending-up',
+    color: MedicalColors.success[500],
+    status: 'pending',
+    duration: '2-4 hours',
+    details: [
+      'Track changes in vitals and lab values over time',
+      'Identify clinical patterns and trajectories',
+      'Use predictive analytics to forecast potential outcomes',
+      'Assess response to initial treatments, if any',
+    ],
+    textbookRef: 'Clinical Epidemiology: The Essentials, 6th Ed., Chapter 8',
+  },
+  {
+    id: 'verification',
+    title: 'Verification',
+    description: 'Quality assurance check',
+    icon: 'verified',
+    color: MedicalColors.warning[500],
+    status: 'pending',
+    duration: '1-2 hours',
+    details: [
+      'Internal audit of the diagnostic process',
+      'Ensure adherence to established protocols',
+      'Verify accuracy of data interpretation',
+      'Final quality check before conclusion',
+    ],
+    textbookRef: 'Quality and Safety in Health Care, by Dr. Emily White, Chapter 4',
   },
   {
     id: 'treatment',
     title: 'Treatment Plan',
-    description: 'Evidence-based treatment recommendations',
+    description: 'Recommended treatments',
+    icon: 'medication',
+    color: MedicalColors.error[500],
     status: 'pending',
-    duration: '15-20 minutes',
-    icon: 'pills',
+    duration: '2-3 hours',
     details: [
-      'First-line treatment selection',
-      'Alternative options consideration',
-      'Contraindications review',
-      'Drug interactions check',
-      'Monitoring parameters'
+      'Formulate evidence-based treatment options',
+      'Discuss risks, benefits, and alternatives',
+      'Provide lifestyle and medication recommendations',
+      'Outline a clear follow-up plan',
     ],
-    textbookRef: 'Clinical Pharmacology & Therapeutics'
+    textbookRef: 'Goodman & Gilman\'s: The Pharmacological Basis of Therapeutics, 14th Ed., Section II',
   },
   {
-    id: 'explanation',
-    title: 'Patient Education',
-    description: 'Clear explanation of diagnosis and treatment',
+    id: 'peer_review_final',
+    title: 'Peer Review',
+    description: 'Expert consultation',
+    icon: 'group',
+    color: MedicalColors.accent[500],
     status: 'pending',
-    duration: '10-15 minutes',
-    icon: 'person.2.fill',
+    duration: '8-12 hours',
     details: [
-      'Diagnosis explanation in lay terms',
-      'Treatment rationale',
-      'Expected outcomes',
-      'Side effects discussion',
-      'Follow-up instructions'
+      'Case presentation to a panel of specialists',
+      'Collaborative review of diagnosis and treatment plan',
+      'Incorporate diverse expert opinions',
+      'Final consensus on the medical second opinion',
     ],
-    textbookRef: 'Patient Communication Guidelines'
-  }
+    textbookRef: 'Principles of Medical Professionalism, by Dr. David Stern, Chapter 7',
+  },
 ];
 
 // Sample case for demonstration
@@ -155,7 +152,7 @@ const SAMPLE_CASE = {
   id: 'case_001',
   patientId: 'PT-12345',
   chiefComplaint: 'Chest pain and shortness of breath',
-  currentStep: 'examination',
+  currentStep: 'assessment',
   assignedDoctor: 'Dr. Sarah Johnson, MD',
   specialty: 'Internal Medicine',
   startTime: '2024-01-15T09:00:00Z',
@@ -179,9 +176,7 @@ const SAMPLE_CASE = {
   }
 };
 
-const { width: screenWidth } = Dimensions.get('window');
-
-export default function MedicalProtocolFlow() {
+export default function MedicalProtocolFlowScreen() {
   const router = useRouter();
   const [selectedStep, setSelectedStep] = useState<string | null>(null);
   const [showProtocolModal, setShowProtocolModal] = useState(false);
@@ -248,7 +243,7 @@ export default function MedicalProtocolFlow() {
 
       <View style={styles.caseDetails}>
         <View style={styles.caseDetailItem}>
-          <IconSymbol name="heart.text.square" size={20} color={MedicalColors.primary[600]} />
+          <IconSymbol name="favorite" size={20} color={MedicalColors.primary[600]} />
           <Text style={styles.caseDetailText}>{currentCase.chiefComplaint}</Text>
             </View>
 
@@ -258,7 +253,7 @@ export default function MedicalProtocolFlow() {
                     </View>
         
         <View style={styles.caseDetailItem}>
-          <IconSymbol name="doc.text" size={20} color={MedicalColors.accent[600]} />
+          <IconSymbol name="description" size={20} color={MedicalColors.accent[600]} />
           <Text style={styles.caseDetailText}>{currentCase.protocolUsed}</Text>
                     </View>
                   </View>
@@ -367,17 +362,17 @@ export default function MedicalProtocolFlow() {
               
       <View style={styles.qualityBadges}>
         <View style={styles.qualityBadge}>
-          <IconSymbol name="checkmark.seal" size={16} color={MedicalColors.success[600]} />
+          <IconSymbol name="verified" size={16} color={MedicalColors.success[600]} />
           <Text style={styles.qualityBadgeText}>Peer Reviewed</Text>
           </View>
         
         <View style={styles.qualityBadge}>
-          <IconSymbol name="doc.text.magnifyingglass" size={16} color={MedicalColors.info[600]} />
+          <IconSymbol name="search" size={16} color={MedicalColors.info[600]} />
           <Text style={styles.qualityBadgeText}>Evidence-Based</Text>
         </View>
         
         <View style={styles.qualityBadge}>
-          <IconSymbol name="building.2" size={16} color={MedicalColors.tertiary[600]} />
+          <IconSymbol name="building.2" size={16} color={MedicalColors.accent[600]} />
           <Text style={styles.qualityBadgeText}>Institutional</Text>
       </View>
               </View>
@@ -452,7 +447,7 @@ export default function MedicalProtocolFlow() {
                 </View>
                 )}
                 
-                {step.id === 'examination' && currentCase.findings.examination && (
+                {step.id === 'assessment' && currentCase.findings.examination && (
                   <View style={styles.findingsContainer}>
                     <Text style={styles.findingItem}>
                       <Text style={styles.findingLabel}>Vitals: </Text>
@@ -538,7 +533,7 @@ export default function MedicalProtocolFlow() {
               onPress={() => router.push('/medical-records')}
               variant="outline"
               size="medium"
-              icon="doc.text"
+              icon="description"
               iconPosition="left"
               style={styles.actionButton}
             />
@@ -548,7 +543,7 @@ export default function MedicalProtocolFlow() {
               onPress={() => router.push('/consultation-flow')}
               variant="primary"
               size="medium"
-              icon="arrow.right.circle"
+              icon="arrow_circle_right"
               iconPosition="right"
               style={styles.actionButton}
             />
@@ -936,4 +931,4 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: MedicalColors.neutral[200],
   },
-});
+}); 

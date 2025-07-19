@@ -1,19 +1,19 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  SafeAreaView,
-  TouchableOpacity,
-  RefreshControl,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import { IconSymbol, Card, Button } from '@/components/ui';
-import { MedicalColors, MedicalGradients } from '@/constants/Colors';
+import { Button, Card, IconSymbol } from '@/components/ui';
+import { MedicalColors } from '@/constants/Colors';
 import * as Haptics from 'expo-haptics';
-import Animated, { FadeIn, FadeInDown, FadeInUp } from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import {
+    RefreshControl,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
+import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 
 interface ConsultationStep {
   id: string;
@@ -321,7 +321,7 @@ export default function ConsultationStatus() {
                   onPress={() => router.push('/self-service-flow')}
                   variant="outline"
                   size="medium"
-                  icon="doc.text"
+                  icon="description"
                   iconPosition="left"
                   style={styles.actionButton}
                 />

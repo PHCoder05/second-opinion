@@ -1,19 +1,18 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  SafeAreaView,
-  TouchableOpacity,
-  Alert,
-  Dimensions,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import { IconSymbol, Card, Button } from '@/components/ui';
+import { Button, Card, IconSymbol } from '@/components/ui';
 import { MedicalColors } from '@/constants/Colors';
-import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import {
+    Alert,
+    Dimensions,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 import Animated, { FadeIn, FadeInDown, FadeInUp } from 'react-native-reanimated';
 
 // Mock assessment data - in real app this would come from the AI analysis
@@ -368,7 +367,7 @@ export default function AIAssessmentResults() {
   const renderNextSteps = () => (
     <Card variant="default" padding="large" style={styles.nextStepsCard}>
       <View style={styles.nextStepsHeader}>
-        <IconSymbol name="arrow.right.circle" size={32} color={MedicalColors.primary[600]} />
+        <IconSymbol name="arrow_circle_right" size={32} color={MedicalColors.primary[600]} />
         <Text style={styles.nextStepsTitle}>Next Steps</Text>
       </View>
 

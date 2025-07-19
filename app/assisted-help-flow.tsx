@@ -1,22 +1,21 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  SafeAreaView,
-  TouchableOpacity,
-  Alert,
-  TextInput,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import { IconSymbol, Card, Button, Input } from '@/components/ui';
+import { IconSymbol } from '@/components/ui';
 import { MedicalColors, MedicalGradients } from '@/constants/Colors';
-import * as Haptics from 'expo-haptics';
-import Animated, { FadeIn, FadeInDown, FadeInUp } from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import {
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from 'react-native';
+import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
 
 interface ChatMessage {
   id: string;
@@ -246,7 +245,7 @@ export default function AssistedHelpFlow() {
             <Animated.View entering={FadeIn.duration(800)} style={styles.connectingContent}>
               <View style={styles.connectingIcon}>
                 <LinearGradient
-                  colors={MedicalGradients.primary}
+                  colors={MedicalGradients?.primary || ['#007BFF', '#0056D3']}
                   style={styles.connectingIconGradient}
                 >
                   <IconSymbol name="person.2" size={32} color="#FFFFFF" />
@@ -317,7 +316,7 @@ export default function AssistedHelpFlow() {
               onPress={handleVideoCall}
               style={styles.headerAction}
             >
-              <IconSymbol name="video" size={20} color={MedicalColors.primary[600]} />
+              <IconSymbol name="videocam" size={20} color={MedicalColors.primary[600]} />
             </TouchableOpacity>
           </View>
         </View>
@@ -328,7 +327,7 @@ export default function AssistedHelpFlow() {
             style={styles.quickAction}
             onPress={handleDocumentUpload}
           >
-            <IconSymbol name="doc.text" size={16} color={MedicalColors.primary[600]} />
+            <IconSymbol name="description" size={16} color={MedicalColors.primary[600]} />
             <Text style={styles.quickActionText}>Upload Documents</Text>
           </TouchableOpacity>
           

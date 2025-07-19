@@ -1,29 +1,27 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  SafeAreaView,
-  TouchableOpacity,
-  Alert,
-  Switch,
-  FlatList,
-  Dimensions,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import { IconSymbol, Card, Button, Input } from '@/components/ui';
-import { MedicalColors, MedicalGradients } from '@/constants/Colors';
+import { Button, Card, IconSymbol, Input } from '@/components/ui';
+import { MedicalColors } from '@/constants/Colors';
 import * as Haptics from 'expo-haptics';
-import Animated, { FadeIn, FadeInDown, FadeInUp } from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import {
+    Alert,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Switch,
+    Text,
+    TouchableOpacity,
+    View
+} from 'react-native';
+import Animated, { FadeIn } from 'react-native-reanimated';
 
 // Medical History Categories following standard protocols
 const MEDICAL_HISTORY_CATEGORIES = [
   {
     id: 'cardiovascular',
     name: 'Cardiovascular',
-    icon: 'heart.fill',
+    icon: 'favorite',
     conditions: [
       'Hypertension', 'Heart Disease', 'Arrhythmia', 'Heart Attack', 'Stroke', 
       'High Cholesterol', 'Heart Murmur', 'Peripheral Artery Disease'
@@ -32,7 +30,7 @@ const MEDICAL_HISTORY_CATEGORIES = [
   {
     id: 'respiratory',
     name: 'Respiratory',
-    icon: 'lungs.fill',
+    icon: 'air',
     conditions: [
       'Asthma', 'COPD', 'Pneumonia', 'Bronchitis', 'Sleep Apnea', 
       'Tuberculosis', 'Pulmonary Embolism', 'Lung Cancer'
@@ -41,7 +39,7 @@ const MEDICAL_HISTORY_CATEGORIES = [
   {
     id: 'endocrine',
     name: 'Endocrine',
-    icon: 'drop.fill',
+    icon: 'water_drop',
     conditions: [
       'Diabetes Type 1', 'Diabetes Type 2', 'Thyroid Disease', 'Hypothyroidism', 
       'Hyperthyroidism', 'Adrenal Disorders', 'Hormone Disorders'
@@ -59,7 +57,7 @@ const MEDICAL_HISTORY_CATEGORIES = [
   {
     id: 'neurological',
     name: 'Neurological',
-    icon: 'brain.head.profile',
+    icon: 'psychology',
     conditions: [
       'Migraine', 'Epilepsy', 'Parkinson\'s Disease', 'Multiple Sclerosis', 
       'Alzheimer\'s', 'Neuropathy', 'Seizure Disorders'
@@ -173,7 +171,7 @@ interface SystemReviewItem {
   details?: string;
 }
 
-export default function ComprehensiveHealthAssessment() {
+function ComprehensiveHealthAssessment() {
   const router = useRouter();
   const [currentSection, setCurrentSection] = useState(0);
   const [medicalConditions, setMedicalConditions] = useState<MedicalCondition[]>([]);
@@ -272,8 +270,8 @@ export default function ComprehensiveHealthAssessment() {
         'Your comprehensive health assessment has been submitted. This detailed information will help our medical team provide you with the most accurate second opinion.',
         [
           { 
-            text: 'Continue to Consultation', 
-            onPress: () => router.push('/consultation-flow')
+            text: 'Continue to App', 
+            onPress: () => router.push('/(tabs)')
           }
         ]
       );
@@ -300,7 +298,7 @@ export default function ComprehensiveHealthAssessment() {
     <Animated.View entering={FadeIn.duration(500)}>
       <Card variant="default" padding="large" style={styles.sectionCard}>
         <View style={styles.sectionHeader}>
-          <IconSymbol name="heart.text.square" size={32} color={MedicalColors.primary[600]} />
+          <IconSymbol name="favorite" size={32} color={MedicalColors.primary[600]} />
           <Text style={styles.sectionTitle}>Medical History</Text>
           <Text style={styles.sectionDescription}>
             Select any medical conditions you have been diagnosed with
@@ -501,7 +499,7 @@ export default function ComprehensiveHealthAssessment() {
     <Animated.View entering={FadeIn.duration(500)}>
       <Card variant="default" padding="large" style={styles.sectionCard}>
         <View style={styles.sectionHeader}>
-          <IconSymbol name="pills.fill" size={32} color={MedicalColors.primary[600]} />
+          <IconSymbol name="medication" size={32} color={MedicalColors.primary[600]} />
           <Text style={styles.sectionTitle}>Medications & Allergies</Text>
           <Text style={styles.sectionDescription}>
             Complete medication list and allergy information
@@ -820,3 +818,10 @@ const styles = StyleSheet.create({
     minWidth: 100,
   },
 });
+
+// Default export for Expo Router
+export default function ComprehensiveHealthAssessmentScreen() {
+  return (
+    <ComprehensiveHealthAssessment />
+  );
+}

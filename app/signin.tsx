@@ -1,18 +1,18 @@
-import React, { useState } from 'react';
-import {
-  StyleSheet,
-  SafeAreaView,
-  View,
-  ScrollView,
-  Alert,
-  Platform
-} from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
+import { Button, IconSymbol, Input } from '@/components/ui';
 import { MedicalColors, MedicalGradients } from '@/constants/Colors';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
-import { IconSymbol, Button, Input } from '@/components/ui';
 import { Link, useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import {
+    Alert,
+    Platform,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    View
+} from 'react-native';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { authService } from '../src/services/authService';
 import { profileService } from '../src/services/profileService';
 
@@ -76,10 +76,9 @@ export default function SignInScreen() {
         if (profile && profile.first_name) {
           // User has profile, go directly to main app
           router.replace('/(tabs)');
-          Alert.alert('Welcome Back!', 'You have been signed in successfully.');
         } else {
           // New user or incomplete profile, go to onboarding
-          router.push('/onboarding');
+          router.replace('/onboarding');
         }
       }
     } catch (error) {
@@ -108,7 +107,7 @@ export default function SignInScreen() {
             <Animated.View style={styles.header} entering={FadeInDown.duration(600)}>
               <View style={styles.logoContainer}>
                 <LinearGradient
-                  colors={MedicalGradients.primary}
+                  colors={MedicalGradients?.primary || ['#007BFF', '#0056D3']}
                   style={styles.logoGradient}
                 >
                   <IconSymbol name="stethoscope" size={28} color="#FFFFFF" />
@@ -126,7 +125,7 @@ export default function SignInScreen() {
                   placeholder="Enter your email"
                   value={email}
                   onChangeText={setEmail}
-                  leftIcon="envelope"
+                  leftIcon="email"
                   keyboardType="email-address"
                   autoCapitalize="none"
                   error={emailError}
@@ -151,7 +150,7 @@ export default function SignInScreen() {
                   onPress={handleSignIn}
                   variant="primary"
                   size="large"
-                  icon={isLoading ? undefined : "arrow.right"}
+                  icon={isLoading ? undefined : "arrow_forward"}
                   iconPosition="right"
                   loading={isLoading}
                   disabled={isLoading}
@@ -172,7 +171,7 @@ export default function SignInScreen() {
                   onPress={() => {/* TODO: Implement Google Sign-In */}}
                   variant="outline"
                   size="medium"
-                  icon="globe"
+                  icon="language"
                   iconPosition="left"
                   disabled={isLoading}
                   style={styles.socialButton}

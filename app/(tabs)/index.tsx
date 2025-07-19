@@ -1,494 +1,675 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  RefreshControl,
-  Alert,
-  SafeAreaView,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import { IconSymbol, Card, Button } from '@/components/ui';
+import { HomeScreenLayout } from '@/components/layout/HomeScreenLayout';
+import { Card, IconSymbol } from '@/components/ui';
 import { MedicalColors, MedicalGradients } from '@/constants/Colors';
 import { authService } from '@/src/services/authService';
-import { profileService, UserProfile, UserActivity } from '@/src/services/profileService';
-import { medicalRecordsService } from '@/src/services/medicalRecordsService';
 import * as Haptics from 'expo-haptics';
-import Animated, { FadeIn, FadeInDown, FadeInUp } from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import {
+  Alert,
+  Dimensions,
+  RefreshControl,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from 'react-native';
+import Animated, {
+  Extrapolate,
+  FadeInDown,
+  FadeInLeft,
+  FadeInRight,
+  FadeInUp,
+  SlideInDown,
+  ZoomIn,
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming
+} from 'react-native-reanimated';
 
-interface DashboardStats {
-  totalSessions: number;
-  totalActivities: number;
-  averageSessionDuration: number;
-  lastLogin: string;
-}
+const { width: screenWidth } = Dimensions.get('window');
 
-interface MedicalStats {
-  totalMedicalRecords: number;
-  totalSecondOpinionRequests: number;
-  completedConsultations: number;
-  pendingRequests: number;
-}
+// Mock user data (in real app, this would come from API/state management)
+const USER_DATA = {
+  name: 'Sarah',
+  avatar: null,
+  healthScore: 87,
+  nextAppointment: {
+    doctor: 'Dr. Michael Chen',
+    specialty: 'Cardiologist',
+    date: 'Today',
+    time: '2:30 PM',
+  },
+  vitals: {
+    heartRate: { value: 72, unit: 'bpm', status: 'normal', trend: 'stable' },
+    bloodPressure: { value: '120/80', unit: 'mmHg', status: 'normal', trend: 'improving' },
+    weight: { value: 65.5, unit: 'kg', status: 'normal', trend: 'stable' },
+    temperature: { value: 36.8, unit: '°C', status: 'normal', trend: 'stable' },
+  },
+  healthGoals: [
+    { id: 1, title: 'Daily Steps', current: 8450, target: 10000, unit: 'steps', progress: 84.5 },
+    { id: 2, title: 'Water Intake', current: 6, target: 8, unit: 'glasses', progress: 75 },
+    { id: 3, title: 'Sleep Hours', current: 7.5, target: 8, unit: 'hours', progress: 93.8 },
+  ],
+  recentActivity: [
+    { id: 1, type: 'consultation', title: 'Video call with Dr. Smith', time: '2 hours ago', icon: 'videocam' },
+    { id: 2, type: 'vitals', title: 'Blood pressure recorded', time: '5 hours ago', icon: 'favorite' },
+    { id: 3, type: 'medication', title: 'Medication reminder completed', time: '8 hours ago', icon: 'medication' },
+    { id: 4, type: 'appointment', title: 'Appointment scheduled', time: '1 day ago', icon: 'schedule' },
+  ],
+};
 
-interface QuickAction {
-  id: string;
-  title: string;
-  subtitle: string;
-  icon: string;
-  color: string;
-  backgroundColor: string;
-  onPress: () => void;
-}
+const QUICK_ACTIONS = [
+  { 
+    id: 1, 
+    title: 'Book Appointment', 
+    subtitle: 'Schedule with specialists',
+    icon: 'schedule', 
+    color: MedicalColors.primary[600], 
+    gradient: MedicalGradients?.primary || ['#007BFF', '#0056D3'],
+    route: '/appointments' 
+  },
+  { 
+    id: 2, 
+    title: 'Start Consultation', 
+    subtitle: 'Video call with doctors',
+    icon: 'videocam', 
+    color: MedicalColors.success[600], 
+    gradient: MedicalGradients?.success || ['#28A745', '#16A34A'],
+    route: '/consultation-flow' 
+  },
+  { 
+    id: 3, 
+    title: 'Health Records', 
+    subtitle: 'View medical history',
+    icon: 'description', 
+    color: MedicalColors.info[600], 
+    gradient: MedicalGradients?.info || ['#17A2B8', '#00ACC1'],
+    route: '/medical-records' 
+  },
+  { 
+    id: 4, 
+    title: 'Symptom Checker', 
+    subtitle: 'AI-powered diagnosis',
+    icon: 'search', 
+    color: MedicalColors.warning[600], 
+    gradient: MedicalGradients?.warning || ['#FFC107', '#FF9800'],
+    route: '/symptom-checker' 
+  },
+];
 
-export default function DashboardScreen() {
+export default function Dashboard() {
   const router = useRouter();
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [recentActivities, setRecentActivities] = useState<UserActivity[]>([]);
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [medicalStats, setMedicalStats] = useState<MedicalStats | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-
-  const quickActions: QuickAction[] = [
-    {
-      id: 'second-opinion',
-      title: 'Second Opinion',
-      subtitle: 'Get expert advice',
-      icon: 'stethoscope',
-      color: MedicalColors.primary[600],
-      backgroundColor: MedicalColors.primary[100],
-      onPress: () => router.push('/consultation-flow'),
-    },
-    {
-      id: 'medical-records',
-      title: 'Medical Records',
-      subtitle: 'Manage documents',
-      icon: 'doc.text.fill',
-      color: MedicalColors.secondary[600],
-      backgroundColor: MedicalColors.secondary[100],
-      onPress: () => router.push('/medical-records'),
-    },
-    {
-      id: 'health-assessment',
-      title: 'Health Check',
-      subtitle: 'Quick assessment',
-      icon: 'heart.fill',
-      color: MedicalColors.accent[600],
-      backgroundColor: MedicalColors.accent[100],
-      onPress: () => router.push('/comprehensive-health-assessment'),
-    },
-    {
-      id: 'find-doctors',
-      title: 'Find Doctors',
-      subtitle: 'Browse specialists',
-      icon: 'person.3.fill',
-      color: MedicalColors.primary[700],
-      backgroundColor: MedicalColors.primary[50],
-      onPress: () => Alert.alert('Coming Soon', 'Doctor directory coming soon!'),
-    },
-  ];
-
-  const loadDashboardData = async () => {
-    try {
-      const { user } = await authService.getCurrentUser();
-      if (!user) {
-        router.replace('/signin');
-        return;
-      }
-
-      // Load user profile
-      const { data: profile, error: profileError } = await profileService.getUserProfile(user.id);
-      if (profile) {
-        setUserProfile(profile);
-      }
-
-      // Load recent activities
-      const { data: activities, error: activitiesError } = await profileService.getUserActivities(user.id, 5);
-      if (activities) {
-        setRecentActivities(activities);
-      }
-
-      // Load user stats
-      const { data: userStats, error: statsError } = await profileService.getUserStats(user.id);
-      if (userStats) {
-        setStats(userStats);
-      }
-
-      // Load medical statistics
-      const { data: medStats } = await medicalRecordsService.getUserMedicalStats(user.id);
-      if (medStats) {
-        setMedicalStats(medStats);
-      }
-
-    } catch (error) {
-      console.error('Error loading dashboard data:', error);
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  };
+  const [refreshing, setRefreshing] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
+  
+  const pulseAnimation = useSharedValue(0);
+  const floatingAnimation = useSharedValue(0);
 
   useEffect(() => {
-    loadDashboardData();
+    // Update time every minute
+    const timeInterval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000);
+
+    // Pulse animation for health score
+    pulseAnimation.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 2000 }),
+        withTiming(0, { duration: 2000 })
+      ),
+      -1,
+      true
+    );
+
+    // Floating animation for cards
+    floatingAnimation.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 4000 }),
+        withTiming(0, { duration: 4000 })
+      ),
+      -1,
+      true
+    );
+
+    return () => {
+      clearInterval(timeInterval);
+    };
   }, []);
 
-  const onRefresh = () => {
-    setIsRefreshing(true);
-    loadDashboardData();
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // Simulate API call
+    setTimeout(() => {
+      setRefreshing(false);
+    }, 1500);
   };
 
-  const formatLastLogin = (lastLogin: string) => {
-    const date = new Date(lastLogin);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    
-    if (diffDays === 0) {
-      return 'Today';
-    } else if (diffDays === 1) {
-      return 'Yesterday';
+  const getGreeting = () => {
+    const hour = currentTime.getHours();
+    if (hour < 12) return 'Good Morning';
+    if (hour < 17) return 'Good Afternoon';
+    return 'Good Evening';
+  };
+
+  const getHealthScoreColor = (score: number) => {
+    if (score >= 80) return MedicalColors.success[600];
+    if (score >= 60) return MedicalColors.warning[600];
+    return MedicalColors.error[600];
+  };
+
+  const getVitalStatusColor = (status: string) => {
+    switch (status) {
+      case 'normal': return MedicalColors.success[600];
+      case 'warning': return MedicalColors.warning[600];
+      case 'critical': return MedicalColors.error[600];
+      default: return MedicalColors.neutral[600];
+    }
+  };
+
+  const getTrendIcon = (trend: string) => {
+    switch (trend) {
+      case 'improving': return 'trending_up';
+      case 'declining': return 'trending_down';
+      case 'stable': return 'trending_flat';
+      default: return 'remove';
+    }
+  };
+
+  const handleQuickAction = async (action: typeof QUICK_ACTIONS[0]) => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (action.route === '/appointments') {
+      router.push('/(tabs)/appointments');
     } else {
-      return `${diffDays} days ago`;
+      router.push(action.route as any);
     }
   };
 
-  const formatActivityType = (activityType: string) => {
-    return activityType.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
-  };
-
-  const getActivityIcon = (activityType: string) => {
-    switch (activityType) {
-      case 'login': return 'arrow.right.circle.fill';
-      case 'logout': return 'arrow.left.circle.fill';
-      case 'profile_update': return 'person.crop.circle.fill';
-      case 'health_assessment': return 'heart.fill';
-      case 'appointment_scheduled': return 'calendar.badge.plus';
-      default: return 'circle.fill';
-    }
-  };
-
-  if (isLoading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading your dashboard...</Text>
-        </View>
-      </SafeAreaView>
+  const handleLogout = async () => {
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Sign Out', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              
+              // Try the comprehensive logout first
+              const { error } = await authService.logout();
+              if (error) {
+                throw error;
+              }
+              
+              // Navigate to welcome screen
+              router.replace('/welcome');
+              
+            } catch (error) {
+              console.error('Logout error:', error);
+              
+              // Fallback to simple signOut
+              try {
+                await authService.signOut();
+                router.replace('/welcome');
+              } catch (fallbackError) {
+                console.error('Fallback logout error:', fallbackError);
+                Alert.alert(
+                  'Logout Error', 
+                  'There was an issue signing you out. Please try again.',
+                  [
+                    { text: 'Try Again', onPress: handleLogout },
+                    { text: 'Cancel', style: 'cancel' }
+                  ]
+                );
+              }
+            }
+          }
+        }
+      ]
     );
-  }
+  };
+
+  const pulseStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        scale: interpolate(
+          pulseAnimation.value,
+          [0, 1],
+          [1, 1.05],
+          Extrapolate.CLAMP
+        ),
+      },
+    ],
+  }));
+
+  const floatingStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateY: interpolate(
+          floatingAnimation.value,
+          [0, 1],
+          [0, -5],
+          Extrapolate.CLAMP
+        ),
+      },
+    ],
+  }));
 
   return (
-    <View style={styles.container}>
-      <LinearGradient
-        colors={[MedicalColors.primary[50], MedicalColors.secondary[50], '#FFFFFF']}
-        locations={[0, 0.3, 1]}
-        style={StyleSheet.absoluteFillObject}
-      />
+    <HomeScreenLayout>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       
-      <SafeAreaView style={styles.safeArea}>
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          refreshControl={
-            <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
-          }
-          showsVerticalScrollIndicator={false}
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        {/* Greeting Header */}
+        <Animated.View 
+          style={styles.greetingSection}
+          entering={FadeInUp.duration(800).delay(100)}
         >
-          {/* Header */}
-          <Animated.View style={styles.header} entering={FadeInUp.duration(800)}>
-            <View style={styles.headerText}>
-              <Text style={styles.greeting}>
-                Good {new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 18 ? 'Afternoon' : 'Evening'}
-              </Text>
-              <Text style={styles.userName}>
-                {userProfile?.first_name || 'User'}
-              </Text>
+          <View style={styles.greetingContent}>
+            <View>
+              <Text style={styles.greetingTime}>{getGreeting()}</Text>
+              <Text style={styles.greetingName}>Hi, {USER_DATA.name}! 👋</Text>
             </View>
-            <TouchableOpacity 
-              style={styles.profileButton}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                router.push('/profile');
-              }}
-            >
-              <LinearGradient
-                colors={MedicalGradients.primary}
-                style={styles.profileButtonGradient}
+            
+            <View style={styles.headerActions}>
+              <Animated.View style={[styles.healthScoreContainer, pulseStyle]}>
+                <LinearGradient
+                  colors={[
+                    getHealthScoreColor(USER_DATA.healthScore),
+                    `${getHealthScoreColor(USER_DATA.healthScore)}80`
+                  ]}
+                  style={styles.healthScoreGradient}
+                >
+                  <Text style={styles.healthScoreNumber}>{USER_DATA.healthScore}</Text>
+                  <Text style={styles.healthScoreLabel}>Health Score</Text>
+                </LinearGradient>
+              </Animated.View>
+              
+              <TouchableOpacity
+                style={styles.logoutButton}
+                onPress={handleLogout}
+                activeOpacity={0.7}
+                accessibilityLabel="Sign out button"
+                accessibilityHint="Double tap to sign out of your account"
               >
-                <IconSymbol name="person.crop.circle.fill" size={24} color="#FFFFFF" />
-              </LinearGradient>
-            </TouchableOpacity>
-          </Animated.View>
-
-          {/* Health Goal Card */}
-          {userProfile?.health_goal && (
-            <Animated.View entering={FadeInDown.delay(200).duration(800)}>
-              <Card variant="health" padding="medium" style={styles.healthGoalCard}>
-                <View style={styles.healthGoalHeader}>
-                  <IconSymbol name="target" size={24} color={MedicalColors.secondary[600]} />
-                  <Text style={styles.healthGoalTitle}>Your Health Goal</Text>
-                </View>
-                <Text style={styles.healthGoalText}>{userProfile.health_goal}</Text>
-              </Card>
-            </Animated.View>
-          )}
-
-          {/* Medical Stats Cards */}
-          {medicalStats && (
-            <Animated.View style={styles.section} entering={FadeInDown.delay(300).duration(800)}>
-              <Text style={styles.sectionTitle}>Your Medical Overview</Text>
-              <View style={styles.statsContainer}>
-                <Card variant="default" padding="medium" style={styles.statCard}>
-                  <IconSymbol name="doc.text.fill" size={24} color={MedicalColors.secondary[600]} />
-                  <Text style={styles.statNumber}>{medicalStats.totalMedicalRecords}</Text>
-                  <Text style={styles.statLabel}>Medical Records</Text>
-                </Card>
-                <Card variant="default" padding="medium" style={styles.statCard}>
-                  <IconSymbol name="stethoscope" size={24} color={MedicalColors.primary[600]} />
-                  <Text style={styles.statNumber}>{medicalStats.totalSecondOpinionRequests}</Text>
-                  <Text style={styles.statLabel}>Second Opinions</Text>
-                </Card>
-                <Card variant="default" padding="medium" style={styles.statCard}>
-                  <IconSymbol name="checkmark.circle.fill" size={24} color={MedicalColors.secondary[600]} />
-                  <Text style={styles.statNumber}>{medicalStats.completedConsultations}</Text>
-                  <Text style={styles.statLabel}>Completed</Text>
-                </Card>
-                <Card variant="default" padding="medium" style={styles.statCard}>
-                  <IconSymbol name="clock.fill" size={24} color={MedicalColors.accent[600]} />
-                  <Text style={styles.statNumber}>{medicalStats.pendingRequests}</Text>
-                  <Text style={styles.statLabel}>Pending</Text>
-                </Card>
-              </View>
-            </Animated.View>
-          )}
-
-        {/* App Stats Cards */}
-        {stats && (
-          <Animated.View style={styles.section} entering={FadeInDown.delay(350)}>
-            <Text style={styles.sectionTitle}>Activity Overview</Text>
-            <View style={styles.statsContainer}>
-              <View style={styles.statCard}>
-                <IconSymbol name="chart.line.uptrend.xyaxis" size={20} color="rgb(59, 130, 246)" />
-                <Text style={styles.statNumber}>{stats.totalSessions}</Text>
-                <Text style={styles.statLabel}>Total Sessions</Text>
-              </View>
-              <View style={styles.statCard}>
-                <IconSymbol name="clock.fill" size={20} color="rgb(16, 185, 129)" />
-                <Text style={styles.statNumber}>{stats.averageSessionDuration}m</Text>
-                <Text style={styles.statLabel}>Avg Session</Text>
-              </View>
-              <View style={styles.statCard}>
-                <IconSymbol name="calendar" size={20} color="rgb(168, 85, 247)" />
-                <Text style={styles.statNumber}>
-                  {stats.lastLogin ? formatLastLogin(stats.lastLogin) : 'N/A'}
-                </Text>
-                <Text style={styles.statLabel}>Last Login</Text>
-              </View>
+                <IconSymbol name="rectangle.portrait.and.arrow.right" size={20} color="#6B7280" />
+              </TouchableOpacity>
             </View>
-          </Animated.View>
+          </View>
+        </Animated.View>
+
+        {/* Next Appointment Card */}
+        {USER_DATA.nextAppointment && (
+        <Animated.View 
+            style={styles.appointmentSection}
+            entering={FadeInLeft.duration(800).delay(200)}
+          >
+            <Card variant="elevated" style={styles.appointmentCard}>
+              <LinearGradient
+                colors={MedicalGradients?.primary as [string, string] || ['#007BFF', '#0056D3'] as [string, string]}
+                style={styles.appointmentGradient}
+              >
+                <View style={styles.appointmentContent}>
+                  <View style={styles.appointmentInfo}>
+                    <IconSymbol name="schedule" size={24} color="#FFFFFF" />
+                    <View style={styles.appointmentText}>
+                      <Text style={styles.appointmentTitle}>Next Appointment</Text>
+                      <Text style={styles.appointmentDetails}>
+                        {USER_DATA.nextAppointment.doctor} • {USER_DATA.nextAppointment.specialty}
+                      </Text>
+                      <Text style={styles.appointmentTime}>
+                        {USER_DATA.nextAppointment.date} at {USER_DATA.nextAppointment.time}
+                      </Text>
+                    </View>
+                  </View>
+                  
+                  <TouchableOpacity 
+                    style={styles.appointmentAction}
+                    onPress={() => router.push('/(tabs)/appointments')}
+                  >
+                    <IconSymbol name="arrow_forward" size={20} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </View>
+              </LinearGradient>
+              </Card>
+        </Animated.View>
         )}
 
         {/* Quick Actions */}
-        <Animated.View style={styles.section} entering={FadeInDown.delay(400)}>
+        <Animated.View 
+          style={styles.quickActionsSection}
+          entering={SlideInDown.duration(800).delay(300)}
+        >
           <Text style={styles.sectionTitle}>Quick Actions</Text>
+          
           <View style={styles.quickActionsGrid}>
-            {quickActions.map((action, index) => (
-              <TouchableOpacity
+            {QUICK_ACTIONS.map((action, index) => (
+              <Animated.View
                 key={action.id}
-                style={[styles.quickActionCard, { backgroundColor: action.backgroundColor }]}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  action.onPress();
-                }}
-                activeOpacity={0.8}
+                style={[styles.quickActionContainer, floatingStyle]}
+                entering={ZoomIn.duration(600).delay(400 + index * 100)}
               >
-                <View style={styles.quickActionIcon}>
-                  <IconSymbol name={action.icon} size={24} color={action.color} />
-                </View>
-                <Text style={[styles.quickActionTitle, { color: action.color }]}>
-                  {action.title}
-                </Text>
-                <Text style={styles.quickActionSubtitle}>{action.subtitle}</Text>
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.quickActionCard}
+                  onPress={() => handleQuickAction(action)}
+                  activeOpacity={0.8}
+                >
+                  <LinearGradient
+                    colors={action.gradient as [string, string]}
+                    style={styles.quickActionGradient}
+                  >
+                    <View style={styles.quickActionIconContainer}>
+                      <IconSymbol name={action.icon} size={24} color="#FFFFFF" />
+                    </View>
+                  </LinearGradient>
+                  <View style={styles.quickActionContent}>
+                    <Text style={styles.quickActionTitle}>{action.title}</Text>
+                    <Text style={styles.quickActionSubtitle}>{action.subtitle}</Text>
+                  </View>
+                </TouchableOpacity>
+              </Animated.View>
             ))}
           </View>
         </Animated.View>
 
-        {/* Recent Activities */}
-        {recentActivities.length > 0 && (
-          <Animated.View style={styles.section} entering={FadeInDown.delay(500)}>
-            <Text style={styles.sectionTitle}>Recent Activity</Text>
-            <View style={styles.activitiesContainer}>
-              {recentActivities.map((activity, index) => (
-                <View key={activity.id} style={styles.activityItem}>
-                  <View style={styles.activityIcon}>
-                    <IconSymbol 
-                      name={getActivityIcon(activity.activity_type)} 
-                      size={16} 
-                      color="rgb(100, 112, 103)" 
-                    />
+        {/* Health Vitals */}
+        <Animated.View
+          style={styles.vitalsSection}
+          entering={FadeInRight.duration(800).delay(500)}
+        >
+          <Text style={styles.sectionTitle}>Health Vitals</Text>
+          
+          <View style={styles.vitalsGrid}>
+            {Object.entries(USER_DATA.vitals).map(([key, vital], index) => (
+              <Animated.View
+                key={key}
+                style={styles.vitalCard}
+                entering={FadeInUp.duration(600).delay(600 + index * 100)}
+              >
+                <Card variant="outlined" style={styles.vitalCardInner}>
+                  <View style={styles.vitalHeader}>
+                    <View style={[styles.vitalStatus, { backgroundColor: `${getVitalStatusColor(vital.status)}15` }]}>
+                      <IconSymbol name={getTrendIcon(vital.trend)} size={16} color={getVitalStatusColor(vital.status)} />
+                    </View>
+                    <Text style={styles.vitalLabel}>{key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}</Text>
                   </View>
-                  <View style={styles.activityContent}>
-                    <Text style={styles.activityTitle}>
-                      {formatActivityType(activity.activity_type)}
-                    </Text>
-                    <Text style={styles.activityTime}>
-                      {new Date(activity.timestamp).toLocaleDateString()}
-                    </Text>
+                  
+                  <View style={styles.vitalContent}>
+                    <Text style={styles.vitalValue}>{vital.value}</Text>
+                    <Text style={styles.vitalUnit}>{vital.unit}</Text>
                   </View>
-                </View>
-              ))}
-            </View>
-          </Animated.View>
-        )}
-
-        {/* Second Opinion Insights */}
-        <Animated.View style={styles.section} entering={FadeInDown.delay(600)}>
-          <Text style={styles.sectionTitle}>Second Opinion Insights</Text>
-          <View style={styles.insightsContainer}>
-            <View style={styles.insightCard}>
-              <IconSymbol name="lightbulb.fill" size={24} color="rgb(251, 204, 21)" />
-              <View style={styles.insightContent}>
-                <Text style={styles.insightTitle}>Expert Medical Opinions</Text>
-                <Text style={styles.insightText}>
-                  Getting a second opinion can provide clarity and confidence in your medical decisions.
-                </Text>
-              </View>
-            </View>
-            <View style={styles.insightCard}>
-              <IconSymbol name="doc.text.fill" size={24} color="rgb(59, 130, 246)" />
-              <View style={styles.insightContent}>
-                <Text style={styles.insightTitle}>Organize Your Records</Text>
-                <Text style={styles.insightText}>
-                  Keep your medical records organized for faster and more accurate consultations.
-                </Text>
-              </View>
-            </View>
-            <View style={styles.insightCard}>
-              <IconSymbol name="person.3.fill" size={24} color="rgb(132, 204, 22)" />
-              <View style={styles.insightContent}>
-                <Text style={styles.insightTitle}>Network of Specialists</Text>
-                <Text style={styles.insightText}>
-                  Our network provides expert opinions across all medical specialties and conditions.
-                </Text>
-              </View>
-            </View>
+                </Card>
+              </Animated.View>
+            ))}
           </View>
         </Animated.View>
-        </ScrollView>
-      </SafeAreaView>
-    </View>
+
+        {/* Health Goals */}
+        <Animated.View
+          style={styles.goalsSection}
+          entering={FadeInLeft.duration(800).delay(700)}
+        >
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Today's Goals</Text>
+            <TouchableOpacity onPress={() => router.push('/health')}>
+              <Text style={styles.sectionAction}>View All</Text>
+              </TouchableOpacity>
+          </View>
+          
+          <View style={styles.goalsContainer}>
+            {USER_DATA.healthGoals.map((goal, index) => (
+              <Animated.View
+                key={goal.id}
+                style={styles.goalCard}
+                entering={FadeInDown.duration(600).delay(800 + index * 150)}
+              >
+                <Card variant="default" style={styles.goalCardInner}>
+                  <View style={styles.goalHeader}>
+                    <Text style={styles.goalTitle}>{goal.title}</Text>
+                    <Text style={styles.goalProgress}>{Math.round(goal.progress)}%</Text>
+                  </View>
+                  
+                  <View style={styles.goalValues}>
+                    <Text style={styles.goalCurrent}>{goal.current} / {goal.target} {goal.unit}</Text>
+                  </View>
+                  
+                  <View style={styles.progressBarContainer}>
+                    <View style={styles.progressBarTrack}>
+                      <Animated.View
+                        style={[
+                          styles.progressBarFill,
+                          { 
+                            width: `${goal.progress}%`,
+                            backgroundColor: goal.progress >= 100 ? MedicalColors.success[600] : MedicalColors.primary[600]
+                          }
+                        ]}
+                        entering={FadeInRight.duration(1000).delay(900 + index * 150)}
+                      />
+                    </View>
+                  </View>
+                </Card>
+              </Animated.View>
+            ))}
+          </View>
+        </Animated.View>
+
+        {/* Recent Activity */}
+        <Animated.View
+          style={styles.activitySection}
+          entering={FadeInUp.duration(800).delay(900)}
+        >
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Recent Activity</Text>
+            <TouchableOpacity onPress={() => router.push('/medical-records')}>
+              <Text style={styles.sectionAction}>View All</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <Card variant="default" style={styles.activityCard}>
+            {USER_DATA.recentActivity.map((activity, index) => (
+              <Animated.View
+                key={activity.id}
+                style={[
+                  styles.activityItem,
+                  index < USER_DATA.recentActivity.length - 1 && styles.activityItemBorder
+                ]}
+                entering={FadeInLeft.duration(600).delay(1000 + index * 100)}
+              >
+                <View style={[styles.activityIcon, { backgroundColor: `${MedicalColors.primary[600]}15` }]}>
+                  <IconSymbol name={activity.icon} size={20} color={MedicalColors.primary[600]} />
+                </View>
+                
+                <View style={styles.activityContent}>
+                  <Text style={styles.activityTitle}>{activity.title}</Text>
+                  <Text style={styles.activityTime}>{activity.time}</Text>
+                </View>
+                
+                <IconSymbol name="chevron_right" size={20} color={MedicalColors.neutral[400]} />
+              </Animated.View>
+            ))}
+          </Card>
+        </Animated.View>
+
+        {/* Emergency Quick Access */}
+        <Animated.View 
+          style={styles.emergencySection}
+          entering={FadeInDown.duration(800).delay(1100)}
+        >
+          <Card variant="default" style={styles.emergencyCard}>
+            <LinearGradient
+              colors={[MedicalColors.error[600], MedicalColors.error[500]]}
+              style={styles.emergencyGradient}
+            >
+              <View style={styles.emergencyContent}>
+                <IconSymbol name="local_hospital" size={32} color="#FFFFFF" />
+                <View style={styles.emergencyText}>
+                  <Text style={styles.emergencyTitle}>Emergency Assistance</Text>
+                  <Text style={styles.emergencySubtitle}>Get immediate help 24/7</Text>
+                </View>
+                <TouchableOpacity 
+                  style={styles.emergencyButton}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+                    // Handle emergency action
+                  }}
+                >
+                  <IconSymbol name="phone" size={24} color={MedicalColors.error[600]} />
+                </TouchableOpacity>
+              </View>
+            </LinearGradient>
+          </Card>
+        </Animated.View>
+
+        {/* Bottom Spacing */}
+        <View style={styles.bottomSpacing} />
+      </ScrollView>
+    </HomeScreenLayout>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#F8F9FA',
   },
-  safeArea: {
-    flex: 1,
+  content: {
+    padding: 20,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+
+  // Greeting Section
+  greetingSection: {
+    marginBottom: 24,
   },
-  loadingText: {
-    fontSize: 16,
-    color: MedicalColors.neutral[600],
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 32,
-  },
-  header: {
+  greetingContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 16,
-    paddingBottom: 24,
   },
-  headerText: {
-    flex: 1,
-  },
-  greeting: {
-    fontSize: 16,
-    color: MedicalColors.neutral[600],
-    marginBottom: 4,
-    fontWeight: '500',
-  },
-  userName: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: MedicalColors.neutral[900],
-  },
-  profileButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  profileButtonGradient: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: MedicalColors.primary[500],
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  healthGoalCard: {
-    marginBottom: 24,
-  },
-  healthGoalHeader: {
+  headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
-    gap: 8,
+    gap: 12,
   },
-  healthGoalTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: MedicalColors.neutral[900],
+  logoutButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  healthGoalText: {
+  greetingTime: {
     fontSize: 14,
     color: MedicalColors.neutral[600],
-    lineHeight: 20,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 32,
-  },
-  statCard: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statNumber: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: MedicalColors.neutral[900],
-    marginTop: 8,
+    fontWeight: '500',
     marginBottom: 4,
   },
-  statLabel: {
-    fontSize: 12,
-    color: MedicalColors.neutral[600],
-    textAlign: 'center',
-    fontWeight: '500',
+  greetingName: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: MedicalColors.neutral[900],
   },
-  section: {
+  healthScoreContainer: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  healthScoreGradient: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  healthScoreNumber: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  healthScoreLabel: {
+    fontSize: 10,
+    color: '#FFFFFF',
+    fontWeight: '600',
+    opacity: 0.9,
+  },
+
+  // Appointment Section
+  appointmentSection: {
+    marginBottom: 24,
+  },
+  appointmentCard: {
+    overflow: 'hidden',
+  },
+  appointmentGradient: {
+    padding: 20,
+  },
+  appointmentContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  appointmentInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  appointmentText: {
+    marginLeft: 16,
+    flex: 1,
+  },
+  appointmentTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  appointmentDetails: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.9)',
+    marginBottom: 2,
+  },
+  appointmentTime: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.8)',
+    fontWeight: '600',
+  },
+  appointmentAction: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // Quick Actions
+  quickActionsSection: {
     marginBottom: 32,
   },
   sectionTitle: {
@@ -497,55 +678,199 @@ const styles = StyleSheet.create({
     color: MedicalColors.neutral[900],
     marginBottom: 16,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  sectionAction: {
+    fontSize: 14,
+    color: MedicalColors.primary[600],
+    fontWeight: '600',
+  },
   quickActionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    justifyContent: 'space-between',
+    gap: 8, // Add small gap between cards
   },
-  quickActionCard: {
-    width: '48%',
-    borderRadius: 16,
-    padding: 20,
-    alignItems: 'center',
-  },
-  quickActionIcon: {
+  quickActionContainer: {
+    width: '47%', // Slightly reduce width to ensure 2 columns
     marginBottom: 12,
   },
+  quickActionCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+    minHeight: 140,
+  },
+  quickActionGradient: {
+    width: '100%',
+    height: 80,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  quickActionIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  quickActionContent: {
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
+  },
   quickActionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
+    fontSize: 14,
+    fontWeight: '700',
+    color: MedicalColors.neutral[900],
     textAlign: 'center',
+    marginBottom: 4,
   },
   quickActionSubtitle: {
     fontSize: 12,
-    color: 'rgb(100, 112, 103)',
+    color: MedicalColors.neutral[600],
     textAlign: 'center',
+    lineHeight: 16,
   },
-  activitiesContainer: {
-    backgroundColor: 'white',
+
+  // Health Vitals
+  vitalsSection: {
+    marginBottom: 32,
+  },
+  vitalsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  vitalCard: {
+    width: '48%', // Use percentage for 2-column layout
+    marginBottom: 12,
+  },
+  vitalCardInner: {
+    padding: 16,
+  },
+  vitalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  vitalStatus: {
+    width: 24,
+    height: 24,
     borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  vitalLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: MedicalColors.neutral[600],
+    flex: 1,
+  },
+  vitalContent: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  vitalValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: MedicalColors.neutral[900],
+  },
+  vitalUnit: {
+    fontSize: 12,
+    color: MedicalColors.neutral[600],
+    marginLeft: 4,
+    fontWeight: '500',
+  },
+
+  // Health Goals
+  goalsSection: {
+    marginBottom: 32,
+  },
+  goalsContainer: {
+    gap: 12,
+  },
+  goalCard: {
+    width: '100%',
+  },
+  goalCardInner: {
+    padding: 16,
+  },
+  goalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  goalTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: MedicalColors.neutral[800],
+  },
+  goalProgress: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: MedicalColors.primary[600],
+  },
+  goalValues: {
+    marginBottom: 12,
+  },
+  goalCurrent: {
+    fontSize: 14,
+    color: MedicalColors.neutral[600],
+    fontWeight: '500',
+  },
+  progressBarContainer: {
+    height: 6,
+  },
+  progressBarTrack: {
+    height: 6,
+    backgroundColor: MedicalColors.neutral[200],
+    borderRadius: 3,
     overflow: 'hidden',
-    shadowColor: 'rgba(47, 60, 51, 0.05)',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 2,
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+
+  // Recent Activity
+  activitySection: {
+    marginBottom: 32,
+  },
+  activityCard: {
+    padding: 0,
+    overflow: 'hidden',
   },
   activityItem: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
+  },
+  activityItemBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(100, 112, 103, 0.1)',
+    borderBottomColor: MedicalColors.neutral[200],
   },
   activityIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(100, 112, 103, 0.1)',
-    justifyContent: 'center',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
+    justifyContent: 'center',
     marginRight: 12,
   },
   activityContent: {
@@ -553,42 +878,53 @@ const styles = StyleSheet.create({
   },
   activityTitle: {
     fontSize: 14,
-    fontWeight: '500',
-    color: 'rgb(49, 58, 52)',
+    fontWeight: '600',
+    color: MedicalColors.neutral[800],
     marginBottom: 2,
   },
   activityTime: {
     fontSize: 12,
-    color: 'rgb(100, 112, 103)',
+    color: MedicalColors.neutral[600],
   },
-  insightsContainer: {
-    gap: 12,
+
+  // Emergency Section
+  emergencySection: {
+    marginBottom: 24,
   },
-  insightCard: {
+  emergencyCard: {
+    overflow: 'hidden',
+  },
+  emergencyGradient: {
+    padding: 20,
+  },
+  emergencyContent: {
     flexDirection: 'row',
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'flex-start',
-    shadowColor: 'rgba(47, 60, 51, 0.05)',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 2,
+    alignItems: 'center',
   },
-  insightContent: {
+  emergencyText: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: 16,
   },
-  insightTitle: {
+  emergencyTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: 'rgb(49, 58, 52)',
-    marginBottom: 4,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 2,
   },
-  insightText: {
+  emergencySubtitle: {
     fontSize: 14,
-    color: 'rgb(100, 112, 103)',
-    lineHeight: 20,
+    color: 'rgba(255,255,255,0.9)',
+  },
+  emergencyButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  bottomSpacing: {
+    height: 20,
   },
 }); 

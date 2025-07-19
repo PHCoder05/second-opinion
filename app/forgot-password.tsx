@@ -5,28 +5,28 @@ import { ThemedText } from '../components/ThemedText';
 import { IconSymbol } from '../components/ui/IconSymbol';
 import VerificationSentCard from '../components/VerificationSentCard';
 
-const METHOD_OPTIONS = [
+const RECOVERY_METHODS = [
   {
-    key: 'email',
+    id: 'email',
+    title: 'Email Recovery',
+    description: 'Send reset link to email',
     icon: 'email',
-    title: 'Email Address',
-    desc: 'Send via email address securely.',
   },
   {
-    key: '2fa',
-    icon: 'lock',
-    title: '2 Factor Authentication',
-    desc: 'Send via 2FA securely.',
+    id: 'phone',
+    title: 'Phone Recovery',
+    description: 'Send code via SMS',
+    icon: 'phone',
   },
   {
-    key: 'authenticator',
-    icon: 'google', // If 'google' is not valid, use 'email' or another mapped icon
-    title: 'Google Authenticator',
-    desc: 'Send via authenticator securely.',
+    id: 'google',
+    title: 'Google Account',
+    description: 'Use Google account',
+    icon: 'mail', // Using a generic mail icon for Google
   },
-] as const;
+];
 
-type MethodKey = typeof METHOD_OPTIONS[number]['key'] | null;
+type MethodKey = typeof RECOVERY_METHODS[number]['id'] | null;
 
 export default function ForgotPasswordScreen() {
   const [selectedMethod, setSelectedMethod] = useState<MethodKey>(null);
@@ -83,22 +83,22 @@ export default function ForgotPasswordScreen() {
         </ThemedText>
         {/* Method Options */}
         <View style={styles.methodList}>
-          {METHOD_OPTIONS.map(option => (
+          {RECOVERY_METHODS.map(option => (
             <Pressable
-              key={option.key}
+              key={option.id}
               style={({ pressed }) => [
                 styles.methodCard,
-                selectedMethod === option.key && styles.methodCardSelected,
+                selectedMethod === option.id && styles.methodCardSelected,
                 pressed && styles.methodCardPressed,
               ]}
-              onPress={() => setSelectedMethod(option.key)}
+              onPress={() => setSelectedMethod(option.id)}
             >
-              <View style={[styles.methodIconCircle, selectedMethod === option.key && styles.methodIconCircleSelected]}>
-                <IconSymbol name={option.icon as any} size={24} color={selectedMethod === option.key ? '#85cc16' : '#63705E'} />
+              <View style={[styles.methodIconCircle, selectedMethod === option.id && styles.methodIconCircleSelected]}>
+                <IconSymbol name={option.icon as any} size={24} color={selectedMethod === option.id ? '#85cc16' : '#63705E'} />
               </View>
               <View style={{ flex: 1 }}>
                 <ThemedText type="subtitle" style={styles.methodTitle}>{option.title}</ThemedText>
-                <ThemedText type="default" style={styles.methodDesc}>{option.desc}</ThemedText>
+                <ThemedText type="default" style={styles.methodDesc}>{option.description}</ThemedText>
               </View>
             </Pressable>
           ))}
@@ -112,7 +112,7 @@ export default function ForgotPasswordScreen() {
           disabled={!selectedMethod}
         >
           <ThemedText type="defaultSemiBold" style={styles.primaryButtonText}>Reset Password</ThemedText>
-          <IconSymbol name="arrow.right" size={20} color="#fff" style={{ marginLeft: 8 }} />
+          <IconSymbol name="arrow_forward" size={20} color="#fff" style={{ marginLeft: 8 }} />
         </Pressable>
       </View>
     </SafeAreaView>

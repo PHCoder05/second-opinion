@@ -1,21 +1,21 @@
-import React, { useState } from 'react';
-import {
-  StyleSheet,
-  SafeAreaView,
-  View,
-  TextInput,
-  TouchableOpacity,
-  Text,
-  Image,
-  ScrollView,
-  Alert,
-} from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
+import { IconSymbol } from '@/components/ui';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import Animated, { FadeIn } from 'react-native-reanimated';
-import { IconSymbol } from '@/components/ui/IconSymbol';
 import { Link, useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import {
+    Alert,
+    Image,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from 'react-native';
+import Animated, { FadeIn } from 'react-native-reanimated';
 import { authService } from '../src/services/authService';
 
 export default function SignUpScreen() {
@@ -56,7 +56,7 @@ export default function SignUpScreen() {
       }
       if (data?.user) {
         Alert.alert('Success', 'Account created! Please check your email to verify your account.');
-        router.push('/signin');
+        router.replace('/onboarding');
       }
     } catch (e) {
       Alert.alert('Error', 'An unexpected error occurred. Please try again.');
@@ -185,7 +185,7 @@ export default function SignUpScreen() {
 
               <TouchableOpacity style={[styles.button, isLoading && styles.buttonDisabled]} onPress={handleSignUp} disabled={isLoading}>
                 <Text style={styles.buttonText}>{isLoading ? 'Signing Up...' : 'Sign Up'}</Text>
-                {!isLoading && <IconSymbol name="arrow.right" size={24} color="#FFFFFF" />}
+                {!isLoading && <IconSymbol name="arrow_forward" size={24} color="#FFFFFF" />}
               </TouchableOpacity>
             </View>
           </View>

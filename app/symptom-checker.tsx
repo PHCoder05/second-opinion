@@ -1,29 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import { Button, Card, IconSymbol, Input } from '@/components/ui';
+import { MedicalColors } from '@/constants/Colors';
+import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  SafeAreaView,
-  TouchableOpacity,
     Alert,
     Modal,
-  Dimensions,
-    TextInput,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import { IconSymbol, Card, Button, Input } from '@/components/ui';
-import { MedicalColors, MedicalGradients } from '@/constants/Colors';
-import * as Haptics from 'expo-haptics';
-import Animated, { FadeIn, FadeInDown, FadeInUp } from 'react-native-reanimated';
+import Animated, { FadeIn } from 'react-native-reanimated';
 
 // Comprehensive symptom categories following medical protocols
 const SYMPTOM_CATEGORIES = [
   {
     id: 'general',
     name: 'General',
-    icon: 'person.fill',
+    icon: 'person',
     color: MedicalColors.primary[600],
     symptoms: [
       'Fever', 'Fatigue', 'Weight Loss', 'Weight Gain', 'Chills', 'Night Sweats',
@@ -33,7 +31,7 @@ const SYMPTOM_CATEGORIES = [
   {
     id: 'pain',
     name: 'Pain & Discomfort',
-    icon: 'heart.text.square',
+    icon: 'monitor-heart',
     color: MedicalColors.accent[600],
     symptoms: [
       'Headache', 'Chest Pain', 'Abdominal Pain', 'Back Pain', 'Joint Pain',
@@ -43,7 +41,7 @@ const SYMPTOM_CATEGORIES = [
   {
     id: 'respiratory',
     name: 'Respiratory',
-    icon: 'lungs.fill',
+    icon: 'air',
     color: MedicalColors.secondary[600],
     symptoms: [
       'Cough', 'Shortness of Breath', 'Wheezing', 'Chest Tightness',
@@ -53,7 +51,7 @@ const SYMPTOM_CATEGORIES = [
   {
     id: 'cardiovascular',
     name: 'Heart & Circulation',
-    icon: 'heart.fill',
+    icon: 'favorite',
     color: MedicalColors.primary[700],
     symptoms: [
       'Palpitations', 'Chest Pressure', 'Dizziness', 'Fainting', 'Leg Swelling',
@@ -63,8 +61,8 @@ const SYMPTOM_CATEGORIES = [
   {
     id: 'neurological',
     name: 'Neurological',
-    icon: 'brain.head.profile',
-    color: MedicalColors.tertiary[600],
+    icon: 'psychology',
+    color: MedicalColors.accent[600],
     symptoms: [
       'Confusion', 'Memory Loss', 'Seizures', 'Numbness', 'Tingling',
       'Tremors', 'Balance Problems', 'Speech Difficulties', 'Vision Changes'
@@ -73,7 +71,7 @@ const SYMPTOM_CATEGORIES = [
   {
     id: 'gastrointestinal',
     name: 'Digestive',
-    icon: 'stomach',
+    icon: 'healing',
     color: MedicalColors.warning[600],
     symptoms: [
       'Nausea', 'Vomiting', 'Diarrhea', 'Constipation', 'Heartburn',
@@ -83,7 +81,7 @@ const SYMPTOM_CATEGORIES = [
   {
     id: 'skin',
     name: 'Skin & Hair',
-    icon: 'hand.raised.fill',
+    icon: 'fingerprint',
     color: MedicalColors.success[600],
     symptoms: [
       'Rash', 'Itching', 'Bruising', 'Hair Loss', 'Skin Changes',
@@ -93,7 +91,7 @@ const SYMPTOM_CATEGORIES = [
   {
     id: 'urinary',
     name: 'Urinary',
-    icon: 'drop.fill',
+    icon: 'water-drop',
     color: MedicalColors.info[600],
     symptoms: [
       'Frequent Urination', 'Burning with Urination', 'Blood in Urine',
@@ -156,7 +154,7 @@ interface SymptomDetail {
   answers: any;
 }
 
-export default function SymptomChecker() {
+export default function SymptomCheckerScreen() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(0);
   const [selectedSymptoms, setSelectedSymptoms] = useState<SelectedSymptom[]>([]);
@@ -259,7 +257,7 @@ export default function SymptomChecker() {
     <Animated.View entering={FadeIn.duration(500)}>
       <Card variant="default" padding="large" style={styles.stepCard}>
         <View style={styles.stepHeader}>
-          <IconSymbol name="heart.text.square" size={32} color={MedicalColors.primary[600]} />
+          <IconSymbol name="favorite" size={32} color={MedicalColors.primary[600]} />
           <Text style={styles.stepTitle}>What brings you here today?</Text>
           <Text style={styles.stepDescription}>
             Describe your main concern or the primary symptom that's troubling you
@@ -360,7 +358,7 @@ export default function SymptomChecker() {
     <Animated.View entering={FadeIn.duration(500)}>
       <Card variant="default" padding="large" style={styles.stepCard}>
         <View style={styles.stepHeader}>
-          <IconSymbol name="doc.text.magnifyingglass" size={32} color={MedicalColors.primary[600]} />
+          <IconSymbol name="search" size={32} color={MedicalColors.primary[600]} />
           <Text style={styles.stepTitle}>Symptom Details</Text>
           <Text style={styles.stepDescription}>
             Review and add details about your symptoms
@@ -469,7 +467,7 @@ export default function SymptomChecker() {
     <Animated.View entering={FadeIn.duration(500)}>
       <Card variant="default" padding="large" style={styles.stepCard}>
         <View style={styles.stepHeader}>
-          <IconSymbol name="brain.head.profile" size={32} color={MedicalColors.primary[600]} />
+          <IconSymbol name="psychology" size={32} color={MedicalColors.primary[600]} />
           <Text style={styles.stepTitle}>AI Analysis</Text>
           <Text style={styles.stepDescription}>
             Our AI will analyze your symptoms and provide preliminary insights
@@ -501,7 +499,7 @@ export default function SymptomChecker() {
             onPress={handleAnalyze}
             variant="primary"
             size="large"
-            icon={isAnalyzing ? undefined : "brain.head.profile"}
+            icon={isAnalyzing ? undefined : "psychology"}
             iconPosition="right"
             loading={isAnalyzing}
             disabled={isAnalyzing || selectedSymptoms.length === 0}
@@ -751,7 +749,7 @@ export default function SymptomChecker() {
               size="medium"
               icon="chevron.right"
               iconPosition="right"
-              style={[styles.navButton, { marginLeft: 'auto' }]}
+              style={{...styles.navButton, marginLeft: 'auto' }}
               disabled={currentStep === 0 && !chiefComplaint.trim()}
             />
             </View>
@@ -1166,4 +1164,4 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: MedicalColors.neutral[200],
   },
-});
+}); 

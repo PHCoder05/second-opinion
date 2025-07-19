@@ -1,5 +1,5 @@
-import { supabase } from './supabaseClient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from './supabaseClient';
 
 export type AuthError = {
   message: string;
@@ -69,10 +69,11 @@ export const authService = {
   // Enhanced Sign out with session cleanup
   signOut: async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      // First, sign out from Supabase
+      const { error: supabaseError } = await supabase.auth.signOut();
+      if (supabaseError) throw supabaseError;
       
-      // Clear all stored auth state
+      // Clear all stored auth state from AsyncStorage
       await AsyncStorage.multiRemove([
         'auth_user_id',
         'user_email', 
@@ -80,11 +81,21 @@ export const authService = {
         'is_logged_in',
         'auto_login',
         'user_profile_data',
-        'cached_profile_picture'
+        'cached_profile_picture',
+        'onboarding_completed' // Also clear onboarding state
       ]);
+      
+      // Verify session is cleared
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        console.warn('Session still exists after signOut, attempting manual cleanup');
+        // Force clear any remaining session data
+        await supabase.auth.signOut({ scope: 'global' });
+      }
       
       return { error: null };
     } catch (error) {
+      console.error('SignOut error:', error);
       return { error: error as AuthError };
     }
   },
@@ -123,9 +134,9 @@ export const authService = {
   initializeAuth: async () => {
     try {
       const isLoggedIn = await authService.isLoggedIn();
-      const { session } = await authService.getSession();
+      const { session, error } = await authService.getSession();
       
-      if (isLoggedIn && session) {
+      if (isLoggedIn && session && !error) {
         return { isAuthenticated: true, session };
       } else {
         // Clear any stale data
@@ -140,6 +151,38 @@ export const authService = {
       }
     } catch (error) {
       return { isAuthenticated: false, session: null };
+    }
+  },
+
+  // Force refresh authentication state
+  refreshAuthState: async () => {
+    try {
+      console.log('Refreshing auth state...');
+      
+      // Clear any cached auth data
+      await AsyncStorage.removeItem('is_logged_in');
+      await AsyncStorage.removeItem('auth_user_id');
+      
+      // Get fresh session
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) {
+        console.error('Session refresh error:', error);
+        return { isAuthenticated: false, user: null };
+      }
+
+      if (session?.user) {
+        console.log('Auth state refreshed - User authenticated:', session.user.email);
+        await AsyncStorage.setItem('auth_user_id', session.user.id);
+        await AsyncStorage.setItem('user_email', session.user.email || '');
+        await AsyncStorage.setItem('is_logged_in', 'true');
+        return { isAuthenticated: true, user: session.user };
+      }
+
+      console.log('Auth state refreshed - No active session');
+      return { isAuthenticated: false, user: null };
+    } catch (error) {
+      console.error('Auth state refresh error:', error);
+      return { isAuthenticated: false, user: null };
     }
   },
 
@@ -286,6 +329,105 @@ export const authService = {
       await AsyncStorage.setItem('auto_login', enabled ? 'true' : 'false');
       return { error: null };
     } catch (error) {
+      return { error: error as AuthError };
+    }
+  },
+
+  // Comprehensive logout utility
+  logout: async () => {
+    try {
+      console.log('Starting comprehensive logout...');
+      
+      // 1. Sign out from Supabase with global scope
+      const { error: supabaseError } = await supabase.auth.signOut({ scope: 'global' });
+      if (supabaseError) {
+        console.error('Supabase signOut error:', supabaseError);
+        // Continue with local cleanup even if Supabase fails
+      }
+      
+      // 2. Clear all AsyncStorage data
+      const keysToRemove = [
+        'auth_user_id',
+        'user_email', 
+        'login_timestamp',
+        'is_logged_in',
+        'auto_login',
+        'user_profile_data',
+        'cached_profile_picture',
+        'onboarding_completed'
+      ];
+      
+      // Force clear onboarding state
+      await AsyncStorage.removeItem('onboarding_completed');
+      console.log('Onboarding state cleared');
+      
+      await AsyncStorage.multiRemove(keysToRemove);
+      console.log('AsyncStorage cleared');
+      
+      // 3. Additional cleanup - clear all auth-related keys
+      const allKeys = await AsyncStorage.getAllKeys();
+      const authKeys = allKeys.filter(key => 
+        key.includes('auth') || 
+        key.includes('user') || 
+        key.includes('login') || 
+        key.includes('session') ||
+        key.includes('onboarding')
+      );
+      
+      if (authKeys.length > 0) {
+        await AsyncStorage.multiRemove(authKeys);
+        console.log('Additional auth keys cleared:', authKeys);
+      }
+      
+      // 4. Verify session is completely cleared
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        console.warn('Session still exists after global signOut');
+        // Try one more time with different approach
+        await supabase.auth.signOut();
+      }
+      
+      console.log('Logout completed successfully');
+      return { error: null };
+    } catch (error) {
+      console.error('Comprehensive logout error:', error);
+      return { error: error as AuthError };
+    }
+  },
+
+  // Logout and redirect utility
+  logoutAndRedirect: async (router: any) => {
+    try {
+      console.log('Starting logout and redirect...');
+      
+      // Perform comprehensive logout
+      const { error } = await authService.logout();
+      if (error) {
+        throw error;
+      }
+      
+      // Small delay to ensure logout completes
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Force navigation to welcome screen directly
+      console.log('Redirecting to welcome screen...');
+      try {
+        router.replace('/welcome');
+        console.log('Navigation to welcome completed');
+      } catch (navError) {
+        console.error('Navigation error:', navError);
+        // If welcome navigation fails, try root
+        try {
+          router.replace('/');
+          console.log('Fallback navigation to root completed');
+        } catch (rootError) {
+          console.error('Root navigation error:', rootError);
+        }
+      }
+      
+      return { error: null };
+    } catch (error) {
+      console.error('Logout and redirect error:', error);
       return { error: error as AuthError };
     }
   }

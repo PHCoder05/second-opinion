@@ -1,23 +1,22 @@
+import { Button, Card, IconSymbol, Input } from '@/components/ui';
+import { MedicalColors } from '@/constants/Colors';
+import * as DocumentPicker from 'expo-document-picker';
+import * as Haptics from 'expo-haptics';
+import * as ImagePicker from 'expo-image-picker';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  SafeAreaView,
-  TouchableOpacity,
-  Alert,
-  TextInput,
-  Switch,
+    Alert,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Switch,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import { IconSymbol, Card, Button, Input } from '@/components/ui';
-import { MedicalColors, MedicalGradients } from '@/constants/Colors';
-import * as DocumentPicker from 'expo-document-picker';
-import * as ImagePicker from 'expo-image-picker';
-import * as Haptics from 'expo-haptics';
-import Animated, { FadeIn, FadeInDown, FadeInUp } from 'react-native-reanimated';
+import Animated, { FadeIn } from 'react-native-reanimated';
 
 interface UploadedDocument {
   id: string;
@@ -188,7 +187,7 @@ export default function SelfServiceFlow() {
           <Animated.View entering={FadeIn.duration(500)}>
             <Card variant="default" padding="large" style={styles.stepCard}>
               <View style={styles.stepHeader}>
-                <IconSymbol name="doc.text" size={32} color={MedicalColors.primary[600]} />
+                <IconSymbol name="description" size={32} color={MedicalColors.primary[600]} />
                 <Text style={styles.stepTitle}>Upload Medical Documents</Text>
                 <Text style={styles.stepDescription}>
                   Share your existing medical records, test results, or any relevant documents
@@ -202,7 +201,7 @@ export default function SelfServiceFlow() {
                     onPress={handleDocumentUpload}
                     variant="outline"
                     size="medium"
-                    icon="doc.text"
+                    icon="description"
                     iconPosition="left"
                     style={styles.uploadButton}
                   />
@@ -224,7 +223,7 @@ export default function SelfServiceFlow() {
                       <View key={doc.id} style={styles.documentItem}>
                         <View style={styles.documentInfo}>
                           <IconSymbol 
-                            name={doc.type.includes('image') ? 'photo' : 'doc.text'} 
+                            name={doc.type.includes('image') ? 'photo' : 'description'} 
                             size={20} 
                             color={MedicalColors.primary[600]} 
                           />
@@ -250,7 +249,7 @@ export default function SelfServiceFlow() {
           <Animated.View entering={FadeIn.duration(500)}>
             <Card variant="default" padding="large" style={styles.stepCard}>
               <View style={styles.stepHeader}>
-                <IconSymbol name="heart.text.square" size={32} color={MedicalColors.primary[600]} />
+                <IconSymbol name="favorite" size={32} color={MedicalColors.primary[600]} />
                 <Text style={styles.stepTitle}>Chief Complaint</Text>
                 <Text style={styles.stepDescription}>
                   What is the main health concern or symptom that brought you here?
@@ -343,7 +342,7 @@ export default function SelfServiceFlow() {
           <Animated.View entering={FadeIn.duration(500)}>
             <Card variant="default" padding="large" style={styles.stepCard}>
               <View style={styles.stepHeader}>
-                <IconSymbol name="pills" size={32} color={MedicalColors.primary[600]} />
+                <IconSymbol name="medication" size={32} color={MedicalColors.primary[600]} />
                 <Text style={styles.stepTitle}>Medical History</Text>
                 <Text style={styles.stepDescription}>
                   Tell us about your medical history, allergies, and current medications

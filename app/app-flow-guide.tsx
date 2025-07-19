@@ -1,27 +1,26 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-    SafeAreaView,
-    TouchableOpacity,
-  Modal,
-  Dimensions,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import { IconSymbol, Card, Button } from '@/components/ui';
+import { Button, Card, IconSymbol } from '@/components/ui';
 import { MedicalColors } from '@/constants/Colors';
 import * as Haptics from 'expo-haptics';
-import Animated, { FadeIn, FadeInDown, FadeInUp } from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import {
+    Modal,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
+} from 'react-native';
+import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 
 // Complete app flow structure
 const APP_FLOW = [
         {
           id: 'welcome',
     title: 'Welcome & Onboarding',
-    icon: 'hand.wave',
+    icon: 'waving-hand',
     color: MedicalColors.primary[600],
     description: 'Trust-building introduction to the platform',
     features: [
@@ -37,7 +36,7 @@ const APP_FLOW = [
   {
     id: 'consultation_entry',
     title: 'Consultation Entry',
-      icon: 'stethoscope',
+      icon: 'medical-services',
     color: MedicalColors.secondary[600],
     description: 'ATM-like instant access to medical consultation',
     features: [
@@ -53,7 +52,7 @@ const APP_FLOW = [
   {
     id: 'data_collection',
     title: 'Comprehensive Data Collection',
-    icon: 'doc.text',
+    icon: 'description',
     color: MedicalColors.accent[600],
     description: 'Systematic gathering of medical information',
     features: [
@@ -70,7 +69,7 @@ const APP_FLOW = [
   {
     id: 'assisted_support',
     title: 'Assisted Help Path',
-    icon: 'person.2.fill',
+    icon: 'group',
     color: MedicalColors.success[600],
     description: 'SOP-guided support team assistance',
     features: [
@@ -87,7 +86,7 @@ const APP_FLOW = [
   {
     id: 'medical_protocol',
     title: 'Medical Protocol Processing',
-    icon: 'list.bullet.clipboard',
+    icon: 'assignment',
     color: MedicalColors.warning[600],
     description: 'Standardized textbook protocol execution',
     features: [
@@ -104,7 +103,7 @@ const APP_FLOW = [
   {
     id: 'diagnosis_delivery',
     title: 'Diagnosis & Treatment Explanation',
-    icon: 'brain.head.profile',
+    icon: 'psychology',
     color: MedicalColors.info[600],
     description: 'Clear, comprehensive medical explanation',
     features: [
@@ -121,8 +120,8 @@ const APP_FLOW = [
   {
     id: 'education_support',
     title: 'Patient Education & Support',
-    icon: 'book.fill',
-    color: MedicalColors.tertiary[600],
+    icon: 'menu-book',
+    color: MedicalColors.accent[600],
     description: 'Ongoing education and support resources',
     features: [
       'Condition-specific education',
@@ -153,49 +152,46 @@ const TRUST_ELEMENTS = [
     id: 'transparency',
     title: 'Complete Transparency',
     description: 'See exactly how we reach our medical conclusions',
-    icon: 'eye',
+    icon: 'visibility',
     color: MedicalColors.success[600]
   },
   {
     id: 'evidence_based',
     title: 'Evidence-Based Medicine',
     description: 'All recommendations follow established medical guidelines',
-    icon: 'doc.text.magnifyingglass',
+    icon: 'search',
     color: MedicalColors.info[600]
   },
   {
     id: 'standardized',
     title: 'Standardized Protocols',
     description: 'Same high-quality process for every patient',
-    icon: 'checkmark.seal',
+    icon: 'verified',
     color: MedicalColors.primary[600]
   },
   {
     id: 'peer_reviewed',
     title: 'Peer Review Process',
     description: 'Multiple physicians review complex cases',
-    icon: 'person.3.fill',
+    icon: 'group',
     color: MedicalColors.secondary[600]
   }
 ];
 
-const { width: screenWidth } = Dimensions.get('window');
-
-export default function AppFlowGuide() {
+const AppFlowGuide = () => {
   const router = useRouter();
-  const [selectedFlow, setSelectedFlow] = useState<string | null>(null);
+  const [selectedFlow, setSelectedFlow] = useState<any>(null);
   const [showFlowModal, setShowFlowModal] = useState(false);
-  const [currentFlowIndex, setCurrentFlowIndex] = useState(0);
 
   const handleFlowPress = (flow: any) => {
-    setSelectedFlow(flow.id);
+    setSelectedFlow(flow);
     setShowFlowModal(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   const navigateToScreen = (screen: string) => {
     setShowFlowModal(false);
-    router.push(`/${screen}`);
+    router.push(`/${screen}` as any);
   };
 
   const renderHeader = () => (
@@ -353,8 +349,7 @@ export default function AppFlowGuide() {
   );
 
   const renderFlowModal = () => {
-    const flow = APP_FLOW.find(f => f.id === selectedFlow);
-    if (!flow) return null;
+    if (!selectedFlow) return null;
 
     return (
       <Modal
@@ -365,7 +360,7 @@ export default function AppFlowGuide() {
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>{flow.title}</Text>
+            <Text style={styles.modalTitle}>{selectedFlow.title}</Text>
             <TouchableOpacity
               onPress={() => setShowFlowModal(false)}
               style={styles.modalCloseButton}
@@ -377,14 +372,14 @@ export default function AppFlowGuide() {
           <ScrollView style={styles.modalContent}>
             <View style={styles.modalSection}>
               <Text style={styles.modalSectionTitle}>Overview</Text>
-              <Text style={styles.modalSectionText}>{flow.description}</Text>
+              <Text style={styles.modalSectionText}>{selectedFlow.description}</Text>
             </View>
 
             <View style={styles.modalSection}>
               <Text style={styles.modalSectionTitle}>Key Features</Text>
-              {flow.features.map((feature, index) => (
+              {selectedFlow.features.map((feature: string, index: number) => (
                 <View key={index} style={styles.modalFeatureItem}>
-                  <IconSymbol name="checkmark.circle" size={16} color={flow.color} />
+                  <IconSymbol name="checkmark.circle" size={16} color={selectedFlow.color} />
                   <Text style={styles.modalFeatureText}>{feature}</Text>
                 </View>
               ))}
@@ -392,7 +387,7 @@ export default function AppFlowGuide() {
 
             <View style={styles.modalSection}>
               <Text style={styles.modalSectionTitle}>Screens Included</Text>
-              {flow.screens.map((screen, index) => (
+              {selectedFlow.screens.map((screen: string, index: number) => (
                     <TouchableOpacity
                   key={index}
                   style={styles.screenItem}
@@ -410,11 +405,11 @@ export default function AppFlowGuide() {
               <View style={styles.timetrustContainer}>
                 <View style={styles.timetrustItem}>
                   <IconSymbol name="clock" size={20} color={MedicalColors.warning[600]} />
-                  <Text style={styles.timetrustText}>Time: {flow.timeEstimate}</Text>
+                  <Text style={styles.timetrustText}>Time: {selectedFlow.timeEstimate}</Text>
                 </View>
                 <View style={styles.timetrustItem}>
                   <IconSymbol name="shield.checkered" size={20} color={MedicalColors.success[600]} />
-                  <Text style={styles.timetrustText}>Trust: {flow.trustFactor}</Text>
+                  <Text style={styles.timetrustText}>Trust: {selectedFlow.trustFactor}</Text>
                 </View>
               </View>
                       </View>
@@ -423,10 +418,10 @@ export default function AppFlowGuide() {
           <View style={styles.modalFooter}>
             <Button
               title="Experience This Flow"
-              onPress={() => navigateToScreen(flow.screens[0])}
+              onPress={() => navigateToScreen(selectedFlow.screens[0])}
               variant="primary"
               size="large"
-              icon="arrow.right.circle"
+              icon="arrow_circle_right"
               iconPosition="right"
               fullWidth
             />
@@ -497,7 +492,7 @@ export default function AppFlowGuide() {
               </View>
               
               <View style={styles.visionPoint}>
-                <IconSymbol name="doc.text.magnifyingglass" size={20} color={MedicalColors.info[600]} />
+                <IconSymbol name="search" size={20} color={MedicalColors.info[600]} />
                 <Text style={styles.visionPointText}>Standardized textbook protocols</Text>
               </View>
               
@@ -554,13 +549,6 @@ const styles = StyleSheet.create({
   headerContent: {
     alignItems: 'center',
     marginBottom: 24,
-  },
-  headerTitle: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: MedicalColors.neutral[900],
-    marginBottom: 8,
-    textAlign: 'center',
   },
   headerSubtitle: {
     fontSize: 18,
@@ -869,4 +857,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: MedicalColors.neutral[200],
   },
-}); 
+});
+
+export default AppFlowGuide; 

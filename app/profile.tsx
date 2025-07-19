@@ -1,21 +1,20 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  Alert,
-  SafeAreaView,
-  Modal,
-  Switch,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { IconSymbol } from '@/components/ui/IconSymbol';
+import { IconSymbol } from '@/components/ui';
 import { authService } from '@/src/services/authService';
 import { profileService, UserProfile, UserSession } from '@/src/services/profileService';
 import * as Haptics from 'expo-haptics';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import {
+    Alert,
+    Modal,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
+} from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 
 interface ProfileSection {
@@ -71,6 +70,65 @@ export default function ProfileScreen() {
     { key: 'insurance_provider', label: 'Insurance Provider', type: 'text' },
     { key: 'preferred_language', label: 'Preferred Language', type: 'select', 
       options: ['English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese', 'Chinese', 'Japanese', 'Korean', 'Arabic'] },
+  ];
+
+  const PROFILE_SECTIONS = [
+    {
+      id: 'records',
+      title: 'Medical Records',
+      description: 'View and manage your records',
+      icon: 'description',
+      route: '/medical-records',
+    },
+    {
+      id: 'consultations',
+      title: 'Consultations',
+      description: 'Your consultation history',
+      icon: 'medical-services',
+      route: '/consultations',
+    },
+    {
+      id: 'documents',
+      title: 'Documents',
+      description: 'Uploaded medical documents',
+      icon: 'folder',
+      route: '/documents',
+    },
+    {
+      id: 'account',
+      title: 'Account Settings',
+      description: 'Manage your account',
+      icon: 'vpn-key',
+      route: '/account-settings',
+    },
+    {
+      id: 'health',
+      title: 'Health Profile',
+      description: 'Your health information',
+      icon: 'monitor-heart',
+      route: '/health-profile',
+    },
+    {
+      id: 'privacy',
+      title: 'Privacy & Security',
+      description: 'Security settings',
+      icon: 'security',
+      route: '/privacy-settings',
+    },
+    {
+      id: 'notifications',
+      title: 'Notifications',
+      description: 'Manage notifications',
+      icon: 'notifications',
+      route: '/notification-settings',
+    },
+    {
+      id: 'help',
+      title: 'Help & Support',
+      description: 'Get assistance',
+      icon: 'help',
+      route: '/help',
+    },
   ];
 
   const loadProfileData = async () => {
@@ -142,57 +200,6 @@ export default function ProfileScreen() {
       ]
     );
   };
-
-  const profileSections: ProfileSection[] = [
-    {
-      id: 'medical-records',
-      title: 'Medical Records',
-      icon: 'doc.text.fill',
-      onPress: () => router.push('/medical-records'),
-    },
-    {
-      id: 'consultations',
-      title: 'Second Opinion Requests',
-      icon: 'stethoscope',
-      onPress: () => router.push('/consultations'),
-    },
-    {
-      id: 'documents',
-      title: 'Medical Documents',
-      icon: 'folder.fill',
-      onPress: () => router.push('/documents'),
-    },
-    {
-      id: 'password',
-      title: 'Change Password',
-      icon: 'key.fill',
-      onPress: () => setPasswordModalVisible(true),
-    },
-    {
-      id: 'medical-history',
-      title: 'Medical History',
-      icon: 'heart.text.square',
-      onPress: () => setMedicalHistoryModalVisible(true),
-    },
-    {
-      id: 'privacy',
-      title: 'Privacy & Security',
-      icon: 'lock.shield',
-      onPress: () => router.push('/privacy-settings'),
-    },
-    {
-      id: 'notifications',
-      title: 'Notification Settings',
-      icon: 'bell.fill',
-      onPress: () => router.push('/notification-settings'),
-    },
-    {
-      id: 'support',
-      title: 'Help & Support',
-      icon: 'questionmark.circle.fill',
-      onPress: () => router.push('/support'),
-    },
-  ];
 
   const handleEditField = (field: EditableField) => {
     setEditingField(field);
@@ -370,9 +377,9 @@ export default function ProfileScreen() {
         <Animated.View style={styles.profileCard} entering={FadeInDown.delay(200)}>
           <View style={styles.profileHeader}>
             <View style={styles.avatarContainer}>
-              <IconSymbol name="person.crop.circle.fill" size={80} color="rgb(132, 204, 22)" />
+                              <IconSymbol name="account_circle" size={80} color="rgb(132, 204, 22)" />
               <TouchableOpacity style={styles.editAvatarButton}>
-                <IconSymbol name="camera.fill" size={16} color="white" />
+                <IconSymbol name="photo_camera" size={16} color="white" />
               </TouchableOpacity>
             </View>
             <View style={styles.profileInfo}>
@@ -464,7 +471,7 @@ export default function ProfileScreen() {
                 <Text style={styles.medicalStatLabel}>Conditions</Text>
               </View>
               <View style={styles.medicalStatCard}>
-                <IconSymbol name="pills.fill" size={20} color="rgb(59, 130, 246)" />
+                <IconSymbol name="medication" size={20} color="rgb(59, 130, 246)" />
                 <Text style={styles.medicalStatNumber}>{medications.length}</Text>
                 <Text style={styles.medicalStatLabel}>Medications</Text>
               </View>
@@ -500,19 +507,22 @@ export default function ProfileScreen() {
           <Animated.View style={styles.section} entering={FadeInDown.delay(400)}>
             <Text style={styles.sectionTitle}>Settings & Services</Text>
             <View style={styles.sectionsContainer}>
-              {profileSections.map((section) => (
+              {PROFILE_SECTIONS.map((section) => (
                 <TouchableOpacity
                   key={section.id}
                   style={styles.sectionItem}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    section.onPress();
+                    router.push(section.route);
                   }}
                 >
                   <View style={styles.sectionIcon}>
                     <IconSymbol name={section.icon} size={20} color="rgb(132, 204, 22)" />
                   </View>
-                  <Text style={styles.sectionItemTitle}>{section.title}</Text>
+                  <View style={styles.sectionItemContent}>
+                    <Text style={styles.sectionItemTitle}>{section.title}</Text>
+                    <Text style={styles.sectionItemDescription}>{section.description}</Text>
+                  </View>
                   <IconSymbol name="chevron.right" size={16} color="rgb(100, 112, 103)" />
                 </TouchableOpacity>
               ))}
@@ -548,7 +558,7 @@ export default function ProfileScreen() {
         {/* Logout Button */}
         <Animated.View style={styles.section} entering={FadeInDown.delay(600)}>
           <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <IconSymbol name="arrow.right.circle.fill" size={24} color="white" />
+                            <IconSymbol name="arrow_circle_right" size={24} color="white" />
             <Text style={styles.logoutButtonText}>Logout</Text>
           </TouchableOpacity>
         </Animated.View>
@@ -1010,6 +1020,19 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(100, 112, 103, 0.1)',
   },
+  sectionItemContent: {
+    flex: 1,
+  },
+  sectionItemTitle: {
+    fontSize: 16,
+    color: 'rgb(49, 58, 52)',
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  sectionItemDescription: {
+    fontSize: 12,
+    color: 'rgb(100, 112, 103)',
+  },
   sectionIcon: {
     width: 40,
     height: 40,
@@ -1018,21 +1041,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
-  },
-  sectionItemTitle: {
-    fontSize: 16,
-    color: 'rgb(49, 58, 52)',
-    flex: 1,
-  },
-  sessionsContainer: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    overflow: 'hidden',
-    shadowColor: 'rgba(47, 60, 51, 0.05)',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 2,
   },
   sessionItem: {
     flexDirection: 'row',

@@ -1,20 +1,20 @@
-import { IconSymbol } from '@/components/ui/IconSymbol';
+import { IconSymbol } from '@/components/ui';
 import { authService } from '@/src/services/authService';
 import { Doctor, medicalRecordsService, SecondOpinionRequest } from '@/src/services/medicalRecordsService';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-  Alert,
-  FlatList,
-  Modal,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    FlatList,
+    Modal,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 
@@ -308,7 +308,7 @@ export default function ConsultationsScreen() {
     <View style={styles.doctorCard}>
       <View style={styles.doctorInfo}>
         <View style={styles.doctorAvatar}>
-          <IconSymbol name="person.crop.circle.fill" size={40} color="rgb(132, 204, 22)" />
+          <IconSymbol name="account_circle" size={40} color="rgb(132, 204, 22)" />
         </View>
         <View style={styles.doctorDetails}>
           <Text style={styles.doctorName}>{item.name}</Text>
@@ -364,7 +364,7 @@ export default function ConsultationsScreen() {
       {/* Stats Cards */}
       <Animated.View style={styles.statsContainer} entering={FadeInDown.delay(200)}>
         <View style={styles.statCard}>
-          <IconSymbol name="doc.text.fill" size={20} color="rgb(59, 130, 246)" />
+          <IconSymbol name="description" size={20} color="rgb(59, 130, 246)" />
           <Text style={styles.statNumber}>{stats.total}</Text>
           <Text style={styles.statLabel}>Total Requests</Text>
         </View>

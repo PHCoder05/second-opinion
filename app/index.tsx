@@ -1,25 +1,37 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { Redirect, useRouter } from 'expo-router';
+import { IconSymbol } from '@/components/ui';
 import { authService } from '@/src/services/authService';
-import { IconSymbol } from '@/components/ui/IconSymbol';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Redirect, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
 export default function Index() {
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
-    checkAuthState();
+    checkAppState();
   }, []);
 
-  const checkAuthState = async () => {
+
+
+  // Note: Removed router listener as it's not available in Expo Router
+  // The app state will be checked on initial load and when navigating back to root
+
+  const checkAppState = async () => {
     try {
-      // Initialize auth state and check if user should remain logged in
+      // Check authentication state
       const { isAuthenticated: authState } = await authService.initializeAuth();
-      
+      console.log('Auth state:', authState);
       setIsAuthenticated(authState);
+      
+      // Check if user has completed onboarding
+      const onboardingCompleted = await AsyncStorage.getItem('onboarding_completed');
+      console.log('Onboarding completed:', onboardingCompleted);
+      setHasCompletedOnboarding(onboardingCompleted === 'true');
       
       // Small delay for smooth transition
       setTimeout(() => {
@@ -27,16 +39,18 @@ export default function Index() {
       }, 1500);
       
     } catch (error) {
-      console.error('Auth check error:', error);
+      console.error('App state check error:', error);
       setIsAuthenticated(false);
+      setHasCompletedOnboarding(false);
       setIsCheckingAuth(false);
     }
   };
 
-  // Show loading screen while checking auth
-  if (isCheckingAuth) {
-    return (
-      <View style={styles.container}>
+  // Always render the same component structure to avoid hooks error
+  return (
+    <View style={styles.container}>
+      {isCheckingAuth ? (
+        // Show loading screen while checking app state
         <Animated.View 
           entering={FadeIn.duration(500)} 
           exiting={FadeOut.duration(500)}
@@ -56,19 +70,38 @@ export default function Index() {
             entering={FadeIn.delay(900)}
             style={styles.loadingIndicator}
           >
-            <Text style={styles.loadingText}>Checking your session...</Text>
+            <Text style={styles.loadingText}>Preparing your experience...</Text>
           </Animated.View>
         </Animated.View>
-      </View>
-    );
-  }
-
-  // Redirect based on auth state
-  if (isAuthenticated) {
-    return <Redirect href="/(tabs)" />;
-  } else {
-    return <Redirect href="/welcome" />;
-  }
+      ) : (
+        // Navigation logic based on app state
+        <>
+          {(() => {
+            console.log('Navigation decision:', { isAuthenticated, hasCompletedOnboarding });
+            if (isAuthenticated) {
+              // User is authenticated
+              if (hasCompletedOnboarding) {
+                console.log('Redirecting to main app');
+                return <Redirect href="/(tabs)" />;
+              } else {
+                console.log('Redirecting to onboarding');
+                return <Redirect href="/onboarding" />;
+              }
+            } else {
+              // User is not authenticated
+              if (hasCompletedOnboarding) {
+                console.log('Redirecting to signin');
+                return <Redirect href="/signin" />;
+              } else {
+                console.log('Redirecting to welcome');
+                return <Redirect href="/welcome" />;
+              }
+            }
+          })()}
+        </>
+      )}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
