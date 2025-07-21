@@ -1,5 +1,18 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabaseClient';
+import { Platform } from 'react-native';
+
+let storage;
+if (Platform.OS === 'web') {
+  storage = {
+    getItem: (key) => Promise.resolve(window.localStorage.getItem(key)),
+    setItem: (key, value) => Promise.resolve(window.localStorage.setItem(key, value)),
+    removeItem: (key) => Promise.resolve(window.localStorage.removeItem(key)),
+    multiRemove: (keys) => Promise.resolve(keys.forEach((key) => window.localStorage.removeItem(key))),
+    getAllKeys: () => Promise.resolve(Object.keys(window.localStorage)),
+  };
+} else {
+  storage = require('@react-native-async-storage/async-storage').default;
+}
 
 export type AuthError = {
   message: string;
@@ -30,9 +43,9 @@ export const authService = {
       
       // Store auth state for persistence
       if (data.user) {
-        await AsyncStorage.setItem('auth_user_id', data.user.id);
-        await AsyncStorage.setItem('user_email', email);
-        await AsyncStorage.setItem('login_timestamp', new Date().toISOString());
+        await storage.setItem('auth_user_id', data.user.id);
+        await storage.setItem('user_email', email);
+        await storage.setItem('login_timestamp', new Date().toISOString());
       }
       
       return { data, error: null };
@@ -53,11 +66,11 @@ export const authService = {
       
       // Store auth state for persistence
       if (data.user) {
-        await AsyncStorage.setItem('auth_user_id', data.user.id);
-        await AsyncStorage.setItem('user_email', email);
-        await AsyncStorage.setItem('login_timestamp', new Date().toISOString());
-        await AsyncStorage.setItem('is_logged_in', 'true');
-        await AsyncStorage.setItem('auto_login', 'true');
+        await storage.setItem('auth_user_id', data.user.id);
+        await storage.setItem('user_email', email);
+        await storage.setItem('login_timestamp', new Date().toISOString());
+        await storage.setItem('is_logged_in', 'true');
+        await storage.setItem('auto_login', 'true');
       }
       
       return { data, error: null };
@@ -73,8 +86,8 @@ export const authService = {
       const { error: supabaseError } = await supabase.auth.signOut();
       if (supabaseError) throw supabaseError;
       
-      // Clear all stored auth state from AsyncStorage
-      await AsyncStorage.multiRemove([
+      // Clear all stored auth state
+      await storage.multiRemove([
         'auth_user_id',
         'user_email', 
         'login_timestamp',
@@ -103,8 +116,8 @@ export const authService = {
   // Check if user should remain logged in
   isLoggedIn: async () => {
     try {
-      const isLoggedIn = await AsyncStorage.getItem('is_logged_in');
-      const autoLogin = await AsyncStorage.getItem('auto_login');
+      const isLoggedIn = await storage.getItem('is_logged_in');
+      const autoLogin = await storage.getItem('auto_login');
       const { data: { session } } = await supabase.auth.getSession();
       
       return isLoggedIn === 'true' && autoLogin === 'true' && session !== null;
@@ -116,9 +129,9 @@ export const authService = {
   // Get stored user data for offline access
   getStoredUserData: async () => {
     try {
-      const userId = await AsyncStorage.getItem('auth_user_id');
-      const email = await AsyncStorage.getItem('user_email');
-      const loginTimestamp = await AsyncStorage.getItem('login_timestamp');
+      const userId = await storage.getItem('auth_user_id');
+      const email = await storage.getItem('user_email');
+      const loginTimestamp = await storage.getItem('login_timestamp');
       
       return {
         userId,
@@ -140,7 +153,7 @@ export const authService = {
         return { isAuthenticated: true, session };
       } else {
         // Clear any stale data
-        await AsyncStorage.multiRemove([
+        await storage.multiRemove([
           'auth_user_id',
           'user_email',
           'login_timestamp', 
@@ -160,8 +173,8 @@ export const authService = {
       console.log('Refreshing auth state...');
       
       // Clear any cached auth data
-      await AsyncStorage.removeItem('is_logged_in');
-      await AsyncStorage.removeItem('auth_user_id');
+      // await AsyncStorage.removeItem('is_logged_in'); // This line was removed as per the new_code
+      // await AsyncStorage.removeItem('auth_user_id'); // This line was removed as per the new_code
       
       // Get fresh session
       const { data: { session }, error } = await supabase.auth.getSession();
@@ -172,9 +185,9 @@ export const authService = {
 
       if (session?.user) {
         console.log('Auth state refreshed - User authenticated:', session.user.email);
-        await AsyncStorage.setItem('auth_user_id', session.user.id);
-        await AsyncStorage.setItem('user_email', session.user.email || '');
-        await AsyncStorage.setItem('is_logged_in', 'true');
+        // await AsyncStorage.setItem('auth_user_id', session.user.id); // This line was removed as per the new_code
+        // await AsyncStorage.setItem('user_email', session.user.email || ''); // This line was removed as per the new_code
+        // await AsyncStorage.setItem('is_logged_in', 'true'); // This line was removed as per the new_code
         return { isAuthenticated: true, user: session.user };
       }
 
@@ -222,7 +235,7 @@ export const authService = {
       if (error) throw error;
       
       if (data.user) {
-        await AsyncStorage.setItem('user_email', newEmail);
+        await storage.setItem('user_email', newEmail);
       }
       
       return { data, error: null };
@@ -316,7 +329,7 @@ export const authService = {
   // Manual logout (disable auto-login)
   manualLogout: async () => {
     try {
-      await AsyncStorage.setItem('auto_login', 'false');
+      await storage.setItem('auto_login', 'false');
       return await authService.signOut();
     } catch (error) {
       return { error: error as AuthError };
@@ -326,7 +339,7 @@ export const authService = {
   // Enable/disable auto-login
   setAutoLogin: async (enabled: boolean) => {
     try {
-      await AsyncStorage.setItem('auto_login', enabled ? 'true' : 'false');
+      await storage.setItem('auto_login', enabled ? 'true' : 'false');
       return { error: null };
     } catch (error) {
       return { error: error as AuthError };
@@ -345,7 +358,7 @@ export const authService = {
         // Continue with local cleanup even if Supabase fails
       }
       
-      // 2. Clear all AsyncStorage data
+      // 2. Clear all storage data
       const keysToRemove = [
         'auth_user_id',
         'user_email', 
@@ -358,14 +371,14 @@ export const authService = {
       ];
       
       // Force clear onboarding state
-      await AsyncStorage.removeItem('onboarding_completed');
+      await storage.removeItem('onboarding_completed');
       console.log('Onboarding state cleared');
       
-      await AsyncStorage.multiRemove(keysToRemove);
-      console.log('AsyncStorage cleared');
+      await storage.multiRemove(keysToRemove);
+      console.log('Storage cleared');
       
       // 3. Additional cleanup - clear all auth-related keys
-      const allKeys = await AsyncStorage.getAllKeys();
+      const allKeys = await storage.getAllKeys();
       const authKeys = allKeys.filter(key => 
         key.includes('auth') || 
         key.includes('user') || 
@@ -375,7 +388,7 @@ export const authService = {
       );
       
       if (authKeys.length > 0) {
-        await AsyncStorage.multiRemove(authKeys);
+        await storage.multiRemove(authKeys);
         console.log('Additional auth keys cleared:', authKeys);
       }
       

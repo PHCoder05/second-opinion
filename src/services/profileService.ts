@@ -1,5 +1,16 @@
 import { supabase } from './supabaseClient';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
+
+let storage;
+if (Platform.OS === 'web') {
+  storage = {
+    getItem: (key) => Promise.resolve(window.localStorage.getItem(key)),
+    setItem: (key, value) => Promise.resolve(window.localStorage.setItem(key, value)),
+    removeItem: (key) => Promise.resolve(window.localStorage.removeItem(key)),
+  };
+} else {
+  storage = require('@react-native-async-storage/async-storage').default;
+}
 
 export interface UserProfile {
   id: string;
@@ -182,7 +193,7 @@ export const profileService = {
       if (error) throw error;
 
       // Store session ID locally for logout tracking
-      await AsyncStorage.setItem('current_session_id', data.id);
+      await storage.setItem('current_session_id', data.id);
       
       // Log login activity
       await profileService.logActivity(userId, 'login', { device_info: deviceInfo });
@@ -196,7 +207,7 @@ export const profileService = {
   // End session (logout)
   endSession: async (userId: string) => {
     try {
-      const sessionId = await AsyncStorage.getItem('current_session_id');
+      const sessionId = await storage.getItem('current_session_id');
       if (!sessionId) {
         return { data: null, error: { message: 'No active session found' } };
       }
@@ -227,7 +238,7 @@ export const profileService = {
       if (error) throw error;
 
       // Clear local session
-      await AsyncStorage.removeItem('current_session_id');
+      await storage.removeItem('current_session_id');
       
       // Log logout activity
       await profileService.logActivity(userId, 'logout', { session_duration: durationMinutes });
@@ -307,7 +318,7 @@ export const profileService = {
   // Check if user has an active session
   hasActiveSession: async () => {
     try {
-      const sessionId = await AsyncStorage.getItem('current_session_id');
+      const sessionId = await storage.getItem('current_session_id');
       return !!sessionId;
     } catch (error) {
       return false;
@@ -330,7 +341,7 @@ export const profileService = {
       if (error) throw error;
 
       // Cache the image locally
-      await AsyncStorage.setItem(`profile_picture_${userId}`, imageUri);
+      await storage.setItem(`profile_picture_${userId}`, imageUri);
       
       // Log the activity
       await profileService.logActivity(userId, 'profile_update', { 
@@ -347,7 +358,7 @@ export const profileService = {
   // Get cached profile picture
   getCachedProfilePicture: async (userId: string) => {
     try {
-      const cachedImage = await AsyncStorage.getItem(`profile_picture_${userId}`);
+      const cachedImage = await storage.getItem(`profile_picture_${userId}`);
       return cachedImage;
     } catch (error) {
       return null;
@@ -366,7 +377,7 @@ export const profileService = {
       if (error) throw error;
 
       // Remove cached image
-      await AsyncStorage.removeItem(`profile_picture_${userId}`);
+      await storage.removeItem(`profile_picture_${userId}`);
       
       // Log the activity
       await profileService.logActivity(userId, 'profile_update', { 
@@ -477,7 +488,7 @@ export const profileService = {
         expiry: new Date(Date.now() + 10 * 60 * 1000).toISOString(), // 10 minutes
       };
       
-      await AsyncStorage.setItem(key, JSON.stringify(data));
+      await storage.setItem(key, JSON.stringify(data));
       return { success: true, error: null };
     } catch (error) {
       return { success: false, error: error as ProfileError };
@@ -488,7 +499,7 @@ export const profileService = {
   verifyToken: async (userId: string, type: 'email' | 'phone', inputToken: string) => {
     try {
       const key = `verification_${type}_${userId}`;
-      const storedData = await AsyncStorage.getItem(key);
+      const storedData = await storage.getItem(key);
       
       if (!storedData) {
         return { valid: false, error: { message: 'No verification token found' } };
@@ -499,7 +510,7 @@ export const profileService = {
       const expiryDate = new Date(expiry);
 
       if (now > expiryDate) {
-        await AsyncStorage.removeItem(key);
+        await storage.removeItem(key);
         return { valid: false, error: { message: 'Verification token expired' } };
       }
 
@@ -508,7 +519,7 @@ export const profileService = {
       }
 
       // Token is valid, mark as verified and clean up
-      await AsyncStorage.removeItem(key);
+      await storage.removeItem(key);
       
       if (type === 'email') {
         await profileService.markEmailVerified(userId);
